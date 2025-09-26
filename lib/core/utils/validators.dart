@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import '../constants/app_constants.dart';
 
 class Validators {
@@ -160,7 +161,66 @@ class Validators {
       return '+632${digitsOnly.substring(2)}';
     }
 
+    if (digitsOnly.startsWith('639') && digitsOnly.length == 12) {
+      // Already in +639 format
+      return '+$digitsOnly';
+    }
+
+    if (digitsOnly.startsWith('632') && digitsOnly.length == 11) {
+      // Already in +632 format
+      return '+$digitsOnly';
+    }
+
     // If already in international format or unknown format, return as is
     return phoneNumber.startsWith('+') ? phoneNumber : '+$digitsOnly';
+  }
+}
+
+/// Input formatter for Philippine phone numbers
+/// Automatically formats input to +63 format as user types
+class PhilippinePhoneInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final String newText = newValue.text;
+
+    // If user is deleting, allow it
+    if (newText.length < oldValue.text.length) {
+      return newValue;
+    }
+
+    // Remove all non-digit characters
+    String digitsOnly = newText.replaceAll(RegExp(r'\D'), '');
+
+    // If user starts typing 0, convert to +63
+    if (digitsOnly.startsWith('0')) {
+      if (digitsOnly.length >= 2 && digitsOnly.substring(0, 2) == '09') {
+        // Mobile number: 09 -> +639
+        digitsOnly = '63${digitsOnly.substring(1)}';
+      } else if (digitsOnly.length >= 2 && digitsOnly.substring(0, 2) == '02') {
+        // Landline: 02 -> +632
+        digitsOnly = '632${digitsOnly.substring(2)}';
+      }
+    }
+
+    // If user types digits directly without 0, assume mobile
+    if (!digitsOnly.startsWith('63') && digitsOnly.isNotEmpty && !digitsOnly.startsWith('0')) {
+      digitsOnly = '639$digitsOnly';
+    }
+
+    // Add + prefix if not present
+    String formattedText = digitsOnly.isEmpty ? '' : '+$digitsOnly';
+
+    // Limit length to reasonable phone number length
+    if (formattedText.length > 14) {
+      formattedText = formattedText.substring(0, 14);
+    }
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
   }
 }

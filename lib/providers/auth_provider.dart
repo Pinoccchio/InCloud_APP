@@ -1,31 +1,44 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/supabase_service.dart';
 
 // Authentication state class
 class AuthState {
-  final User? user;
-  final bool isLoading;
-  final String? error;
   final bool isAuthenticated;
+  final bool isLoading;
+  final User? user;
+  final Session? session;
+  final Map<String, dynamic>? customerProfile;
+  final String? error;
+  final String? successMessage;
 
   const AuthState({
-    this.user,
-    this.isLoading = false,
-    this.error,
     this.isAuthenticated = false,
+    this.isLoading = false,
+    this.user,
+    this.session,
+    this.customerProfile,
+    this.error,
+    this.successMessage,
   });
 
   AuthState copyWith({
-    User? user,
-    bool? isLoading,
-    String? error,
     bool? isAuthenticated,
+    bool? isLoading,
+    User? user,
+    Session? session,
+    Map<String, dynamic>? customerProfile,
+    String? error,
+    String? successMessage,
   }) {
     return AuthState(
-      user: user ?? this.user,
-      isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      isLoading: isLoading ?? this.isLoading,
+      user: user ?? this.user,
+      session: session ?? this.session,
+      customerProfile: customerProfile ?? this.customerProfile,
+      error: error,
+      successMessage: successMessage,
     );
   }
 }
@@ -34,174 +47,195 @@ class AuthState {
 class AuthNotifier extends Notifier<AuthState> {
   @override
   AuthState build() {
-    _initialize();
-    return const AuthState();
+    // Return initial state immediately, defer initialization
+    Future.microtask(() => _initializeAuth());
+    return const AuthState(isLoading: true);
   }
 
-  void _initialize() {
-    // For frontend-only testing, skip Supabase initialization
-    // TODO: Uncomment when backend is ready
-    /*
-    // Listen to auth state changes
-    final supabase = Supabase.instance.client;
-    final currentUser = supabase.auth.currentUser;
+  Future<void> _initializeAuth() async {
+    // No need to set loading here as it's already set in build()
 
-    if (currentUser != null) {
+    try {
+      final session = SupabaseService.client.auth.currentSession;
+      if (session?.user != null) {
+        // Get customer profile
+        final customerProfile = await SupabaseService.getCustomerByUserId(session!.user.id);
+
+        state = state.copyWith(
+          isAuthenticated: true,
+          isLoading: false,
+          user: session.user,
+          session: session,
+          customerProfile: customerProfile,
+        );
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+
+      // Listen to auth state changes
+      SupabaseService.client.auth.onAuthStateChange.listen((data) async {
+        final session = data.session;
+        final user = session?.user;
+
+        if (user != null && session != null) {
+          // User signed in
+          final customerProfile = await SupabaseService.getCustomerByUserId(user.id);
+          state = state.copyWith(
+            isAuthenticated: true,
+            user: user,
+            session: session,
+            customerProfile: customerProfile,
+            error: null,
+          );
+        } else {
+          // User signed out
+          state = const AuthState();
+        }
+      });
+    } catch (e) {
       state = state.copyWith(
-        user: currentUser,
-        isAuthenticated: true,
+        isLoading: false,
+        error: e.toString(),
       );
     }
-
-    // Listen for auth changes
-    supabase.auth.onAuthStateChange.listen((data) {
-      final user = data.session?.user;
-      state = state.copyWith(
-        user: user,
-        isAuthenticated: user != null,
-        error: null,
-      );
-    });
-    */
   }
 
-  // Sign in with email and password
-  Future<void> signIn(String email, String password) async {
+  Future<void> signIn({
+    required String email,
+    required String password,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // For frontend-only testing, simulate successful login
-      await Future.delayed(const Duration(seconds: 2));
-
-      // TODO: Replace with actual Supabase auth when backend is ready
-      /*
-      final response = await Supabase.instance.client.auth.signInWithPassword(
+      final result = await SupabaseService.signInCustomer(
         email: email,
         password: password,
       );
 
-      if (response.user != null) {
+      if (result.success) {
         state = state.copyWith(
-          user: response.user,
           isAuthenticated: true,
           isLoading: false,
+          user: result.user,
+          session: result.session,
+          customerProfile: result.customerProfile,
+          error: null, // Clear any previous errors
+          successMessage: result.successMessage, // Use success message from result
+        );
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: result.errorMessage,
+          successMessage: null, // Clear any previous success messages
         );
       }
-      */
-
-      // Simulate successful login for frontend testing
-      state = state.copyWith(
-        isAuthenticated: true,
-        isLoading: false,
-      );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'An unexpected error occurred',
+        error: e.toString(),
+        successMessage: null, // Clear any previous success messages
       );
-      rethrow;
     }
   }
 
-  // Sign up with email and password
   Future<void> signUp({
     required String email,
     required String password,
     required String fullName,
     required String phone,
-    String? branchPreference,
+    String? preferredBranchId,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // For frontend-only testing, simulate successful registration
-      await Future.delayed(const Duration(seconds: 2));
-
-      // TODO: Replace with actual Supabase auth when backend is ready
-      /*
-      final response = await Supabase.instance.client.auth.signUp(
+      final result = await SupabaseService.signUpCustomer(
         email: email,
         password: password,
-        data: {
-          'full_name': fullName,
-          'phone': phone,
-          'branch_preference': branchPreference,
-          'role': 'customer', // Default role for mobile app users
-        },
+        fullName: fullName,
+        phone: phone,
+        preferredBranchId: preferredBranchId,
       );
 
-      // Note: User might need to verify email before being fully authenticated
-      if (response.user != null) {
+      if (result.success) {
+        if (result.emailConfirmationRequired) {
+          // Email confirmation required - this is a SUCCESS, not an error!
+          state = state.copyWith(
+            isLoading: false,
+            error: null, // Clear any previous errors
+            successMessage: 'Account created successfully! Please check your email to confirm your account and then sign in.',
+          );
+        } else {
+          // Account created successfully but force logout to require manual sign in
+          // This ensures consistent auth flow and prevents auto-login
+          await SupabaseService.signOut(); // Force logout any existing session
+          state = state.copyWith(
+            isAuthenticated: false, // Keep user logged out
+            isLoading: false,
+            user: null, // Clear user data
+            session: null, // Clear session
+            customerProfile: null, // Clear profile
+            error: null, // Clear any previous errors
+            successMessage: 'Account created successfully! Please sign in with your new credentials to continue.',
+          );
+        }
+      } else {
         state = state.copyWith(
-          user: response.user,
-          isAuthenticated: response.user!.emailConfirmedAt != null,
           isLoading: false,
+          error: result.errorMessage,
+          successMessage: null, // Clear any previous success messages
         );
       }
-      */
-
-      // Simulate successful registration for frontend testing
-      state = state.copyWith(
-        isLoading: false,
-        // Note: For signup, we don't auto-authenticate to show login flow
-      );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'An unexpected error occurred during registration',
+        error: e.toString(),
+        successMessage: null, // Clear any previous success messages
       );
-      rethrow;
     }
   }
 
-  // Sign out
   Future<void> signOut() async {
     state = state.copyWith(isLoading: true);
 
     try {
-      await Supabase.instance.client.auth.signOut();
-      state = const AuthState(); // Reset to initial state
+      await SupabaseService.signOut();
+      state = const AuthState();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to sign out',
+        error: e.toString(),
       );
-      rethrow;
     }
   }
 
-  // Reset password
   Future<void> resetPassword(String email) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(email);
-      state = state.copyWith(isLoading: false);
-    } on AuthException catch (e) {
+      await SupabaseService.resetPassword(email);
       state = state.copyWith(
         isLoading: false,
-        error: e.message,
+        error: 'Password reset email sent. Please check your inbox.',
       );
-      rethrow;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to send reset password email',
+        error: e.toString(),
       );
-      rethrow;
     }
   }
 
-  // Clear error
   void clearError() {
     state = state.copyWith(error: null);
   }
 
-  // Check if user is authenticated
-  bool get isAuthenticated => state.isAuthenticated;
+  void clearSuccessMessage() {
+    state = state.copyWith(successMessage: null);
+  }
 
-  // Get current user
-  User? get currentUser => state.user;
+  void clearMessages() {
+    state = state.copyWith(error: null, successMessage: null);
+  }
 }
 
 // Provider for authentication state
@@ -218,10 +252,18 @@ final currentUserProvider = Provider<User?>((ref) {
   return ref.watch(authProvider).user;
 });
 
+final customerProfileProvider = Provider<Map<String, dynamic>?>((ref) {
+  return ref.watch(authProvider).customerProfile;
+});
+
 final authLoadingProvider = Provider<bool>((ref) {
   return ref.watch(authProvider).isLoading;
 });
 
 final authErrorProvider = Provider<String?>((ref) {
   return ref.watch(authProvider).error;
+});
+
+final authSuccessProvider = Provider<String?>((ref) {
+  return ref.watch(authProvider).successMessage;
 });

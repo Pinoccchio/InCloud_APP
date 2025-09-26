@@ -1,54 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/validators.dart';
+import '../../providers/auth_provider.dart';
+import '../../widgets/dialogs/success_dialog.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormBuilderState>();
-  bool _isLoading = false;
   bool _obscurePassword = true;
   bool _rememberMe = false;
 
+
   void _handleLogin() async {
     if (_formKey.currentState?.saveAndValidate() ?? false) {
-      setState(() {
-        _isLoading = true;
-      });
+      final formData = _formKey.currentState!.value;
+      final email = formData['email'] as String;
+      final password = formData['password'] as String;
 
-      try {
-        // Note: Form data will be used when Supabase auth is implemented
-        // final formData = _formKey.currentState!.value;
-        // final email = formData['email'] as String;
-        // final password = formData['password'] as String;
-
-        // TODO: Implement actual authentication with Supabase
-        // For now, just simulate API call and navigate
-        await Future.delayed(const Duration(seconds: 2));
-
-        if (mounted) {
-          context.go('/home');
-        }
-      } catch (error) {
-        if (mounted) {
-          _showErrorSnackbar(error.toString());
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
+      await ref.read(authProvider.notifier).signIn(
+        email: email,
+        password: password,
+      );
     }
   }
 
@@ -57,6 +40,16 @@ class _LoginScreenState extends State<LoginScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showSuccessSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -73,6 +66,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final isLoading = authState.isLoading;
+
+    // Listen to auth state changes for errors and success messages
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (mounted) {
+        // Handle success messages with dialogs for special cases
+        if (next.successMessage != null) {
+          // Clear the success message first
+          ref.read(authProvider.notifier).clearSuccessMessage();
+
+          // Show success dialog for account recovery scenarios
+          if (next.successMessage!.contains('recovered') ||
+              next.successMessage!.contains('restored')) {
+            final userName = next.customerProfile?['full_name'] as String? ?? 'User';
+            context.showAccountRecovered(userName);
+          } else {
+            // For other success messages, use snackbar
+            _showSuccessSnackbar(next.successMessage!);
+          }
+        }
+
+        // Handle error messages
+        if (next.error != null) {
+          _showErrorSnackbar(next.error!);
+          // Clear the error after showing it
+          ref.read(authProvider.notifier).clearError();
+        }
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppColors.surfacePrimary,
       body: SafeArea(
@@ -233,12 +257,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleLogin,
+                        onPressed: isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryRed,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: _isLoading
+                        child: isLoading
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,

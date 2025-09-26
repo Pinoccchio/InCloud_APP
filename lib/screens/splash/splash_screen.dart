@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 
@@ -60,22 +59,18 @@ class _SplashScreenState extends State<SplashScreen>
     // Start animations with a slight delay
     await Future.delayed(const Duration(milliseconds: 300));
 
+    // Check if widget is still mounted before starting animations
+    if (!mounted) return;
+
     // Start fade and scale animations
     _fadeController.forward();
     await Future.delayed(const Duration(milliseconds: 100));
+
+    if (!mounted) return;
     _scaleController.forward();
 
-    // Wait for splash duration then navigate
+    // Wait for splash duration - navigation is handled by AppShell
     await Future.delayed(AppConstants.splashDuration);
-    _navigateToNext();
-  }
-
-  void _navigateToNext() {
-    if (mounted) {
-      // TODO: Check if user is first time user or logged in
-      // For now, always go to onboarding
-      context.go('/onboarding');
-    }
   }
 
   @override

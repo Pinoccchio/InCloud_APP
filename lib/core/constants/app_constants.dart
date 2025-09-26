@@ -88,12 +88,11 @@ class AppConstants {
   static const double defaultBorderRadius = 8.0;
   static const double cardElevation = 2.0;
 
-  // Branch Locations (from the business model)
-  static const List<String> branchLocations = [
-    'Main Branch - Sampaloc, Manila',
-    'Branch 2 - Sampaloc, Manila',
-    'Branch 3 - Sampaloc, Manila',
-  ];
+  // Business Location (single centralized location)
+  static const String mainBranchName = "J.A's Food Trading - Main Branch";
+  static const String mainBranchLocation = "Sampaloc, Manila, Philippines";
+  static const String mainBranchId = "ab2ecdc9-58ca-4445-8e56-2048e83c4819";
+  static const String fullBranchDisplay = "$mainBranchName, $mainBranchLocation";
 
   // Minimum Requirements
   static const int minPasswordLength = 8;

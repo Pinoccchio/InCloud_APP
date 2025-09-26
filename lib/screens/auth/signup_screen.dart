@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/validators.dart';
+import '../../providers/auth_provider.dart';
+import '../../widgets/dialogs/success_dialog.dart';
 
-class SignupScreen extends StatefulWidget {
+class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
 
   @override
-  State<SignupScreen> createState() => _SignupScreenState();
+  ConsumerState<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> {
+class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormBuilderState>();
-  bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _acceptTerms = false;
+
 
   void _handleSignup() async {
     if (_formKey.currentState?.saveAndValidate() ?? false) {
@@ -27,43 +30,22 @@ class _SignupScreenState extends State<SignupScreen> {
         return;
       }
 
-      setState(() {
-        _isLoading = true;
-      });
+      final formData = _formKey.currentState!.value;
+      final fullName = formData['fullName'] as String;
+      final email = formData['email'] as String;
+      final phone = formData['phone'] as String;
+      final password = formData['password'] as String;
 
-      try {
-        // Note: Form data will be used when Supabase auth is implemented
-        // final formData = _formKey.currentState!.value;
-        // final fullName = formData['fullName'] as String;
-        // final email = formData['email'] as String;
-        // final phone = formData['phone'] as String;
-        // final password = formData['password'] as String;
-        // final branchPreference = formData['branchPreference'] as String?;
+      // Auto-assign the main branch ID
+      const mainBranchId = AppConstants.mainBranchId;
 
-        // TODO: Implement actual registration with Supabase
-        await Future.delayed(const Duration(seconds: 2));
-
-        // Show success message
-        if (mounted) {
-          _showSuccessSnackbar(AppConstants.accountCreatedMessage);
-
-          // Navigate to login after successful registration
-          await Future.delayed(const Duration(seconds: 1));
-          if (mounted) {
-            context.go('/login');
-          }
-        }
-      } catch (error) {
-        if (mounted) {
-          _showErrorSnackbar(error.toString());
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
+      await ref.read(authProvider.notifier).signUp(
+        email: email,
+        password: password,
+        fullName: fullName,
+        phone: phone,
+        preferredBranchId: mainBranchId,
+      );
     }
   }
 
@@ -93,6 +75,39 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final isLoading = authState.isLoading;
+
+    // Listen to auth state changes for errors and success messages
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (mounted) {
+        // Handle success messages with dialogs
+        if (next.successMessage != null) {
+          final email = _formKey.currentState?.value['email'] as String? ?? '';
+          final fullName = _formKey.currentState?.value['fullName'] as String? ?? 'User';
+
+          // Clear the success message first
+          ref.read(authProvider.notifier).clearSuccessMessage();
+
+          // Show appropriate success dialog based on message content
+          if (next.successMessage!.contains('check your email')) {
+            // Email confirmation required
+            context.showSignupSuccess(email);
+          } else if (next.successMessage!.contains('sign in with your new credentials')) {
+            // Direct signup success (no email confirmation needed)
+            context.showSignupComplete(fullName);
+          }
+        }
+
+        // Handle error messages
+        if (next.error != null) {
+          _showErrorSnackbar(next.error!);
+          // Clear the error after showing it
+          ref.read(authProvider.notifier).clearError();
+        }
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppColors.surfacePrimary,
       appBar: AppBar(
@@ -215,10 +230,13 @@ class _SignupScreenState extends State<SignupScreen> {
                           Icons.phone_outlined,
                           color: AppColors.primaryBlue,
                         ),
-                        hintText: '+63 or 09xxxxxxxxx',
+                        hintText: '09xxxxxxxxx',
                       ),
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
+                      inputFormatters: [
+                        PhilippinePhoneInputFormatter(),
+                      ],
                       validator: FormBuilderValidators.compose([
                         FormBuilderValidators.required(),
                         (value) => Validators.validatePhoneNumber(value),
@@ -227,23 +245,28 @@ class _SignupScreenState extends State<SignupScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Branch preference dropdown
-                    FormBuilderDropdown<String>(
+                    // Branch location (read-only, auto-assigned)
+                    FormBuilderTextField(
                       name: 'branchPreference',
                       decoration: InputDecoration(
-                        labelText: AppConstants.branchPreferenceLabel,
+                        labelText: 'Branch Location',
                         prefixIcon: const Icon(
-                          Icons.location_on_outlined,
+                          Icons.location_on,
                           color: AppColors.primaryBlue,
                         ),
+                        suffixIcon: const Icon(
+                          Icons.lock_outlined,
+                          size: 18,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                      items: AppConstants.branchLocations
-                          .map((branch) => DropdownMenuItem(
-                                value: branch,
-                                child: Text(branch),
-                              ))
-                          .toList(),
-                      validator: FormBuilderValidators.required(),
+                      initialValue: AppConstants.fullBranchDisplay,
+                      readOnly: true,
+                      enabled: false,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
 
                     const SizedBox(height: 16),
@@ -270,7 +293,6 @@ class _SignupScreenState extends State<SignupScreen> {
                             });
                           },
                         ),
-                        helperText: 'At least 8 characters',
                       ),
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.next,
@@ -377,12 +399,12 @@ class _SignupScreenState extends State<SignupScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleSignup,
+                        onPressed: isLoading ? null : _handleSignup,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryRed,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: _isLoading
+                        child: isLoading
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
