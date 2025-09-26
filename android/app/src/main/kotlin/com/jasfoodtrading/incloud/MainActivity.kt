@@ -1,4 +1,4 @@
-package com.example.incloud_app
+package com.jasfoodtrading.incloud
 
 import io.flutter.embedding.android.FlutterActivity
 
