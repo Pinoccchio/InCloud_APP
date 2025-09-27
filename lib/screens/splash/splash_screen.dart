@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
+import '../onboarding/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -9,215 +10,160 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late AnimationController _scaleController;
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
-    _startSplashSequence();
-  }
 
-  void _initializeAnimations() {
-    // Fade animation controller
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
 
-    // Scale animation controller
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    // Fade animation
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
     ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
+      parent: _animationController,
+      curve: Curves.easeIn,
     ));
 
-    // Scale animation
     _scaleAnimation = Tween<double>(
-      begin: 0.8,
+      begin: 0.5,
       end: 1.0,
     ).animate(CurvedAnimation(
-      parent: _scaleController,
+      parent: _animationController,
       curve: Curves.elasticOut,
     ));
-  }
 
-  void _startSplashSequence() async {
-    // Start animations with a slight delay
-    await Future.delayed(const Duration(milliseconds: 300));
+    // Start animation
+    _animationController.forward();
 
-    // Check if widget is still mounted before starting animations
-    if (!mounted) return;
-
-    // Start fade and scale animations
-    _fadeController.forward();
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    if (!mounted) return;
-    _scaleController.forward();
-
-    // Wait for splash duration - navigation is handled by AppShell
-    await Future.delayed(AppConstants.splashDuration);
+    // Navigate to onboarding after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _scaleController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surfacePrimary,
-      body: Container(
-        // Subtle gradient background
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.surfacePrimary,
-              AppColors.surfaceSecondary,
-            ],
-          ),
-        ),
+      backgroundColor: AppColors.primaryRed,
+      body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo with animations
-              AnimatedBuilder(
-                animation: Listenable.merge([_fadeAnimation, _scaleAnimation]),
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: Opacity(
-                      opacity: _fadeAnimation.value,
-                      child: Container(
-                        width: 200,
-                        height: 200,
+          child: AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) {
+              return FadeTransition(
+                opacity: _fadeAnimation,
+                child: ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Logo
+                      Container(
+                        width: 150,
+                        height: 150,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(100),
+                          borderRadius: BorderRadius.circular(75),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primaryRed.withValues(alpha: 0.2),
+                              color: AppColors.white.withValues(alpha: 0.3),
                               blurRadius: 20,
                               spreadRadius: 5,
                             ),
                           ],
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(100),
+                          borderRadius: BorderRadius.circular(75),
                           child: Image.asset(
                             AppConstants.logoAssetPath,
                             fit: BoxFit.cover,
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
 
-              const SizedBox(height: 40),
+                      const SizedBox(height: 32),
 
-              // App name and tagline with fade animation
-              AnimatedBuilder(
-                animation: _fadeAnimation,
-                builder: (context, child) {
-                  return Opacity(
-                    opacity: _fadeAnimation.value,
-                    child: Column(
-                      children: [
-                        // App name
-                        Text(
-                          AppConstants.appName,
-                          style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                                color: AppColors.primaryRed,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
-                              ),
-                        ),
+                      // App Name
+                      Text(
+                        AppConstants.appName,
+                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                      ),
 
-                        const SizedBox(height: 8),
+                      const SizedBox(height: 16),
 
-                        // Company name
-                        Text(
-                          AppConstants.companyName,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: AppColors.primaryBlue,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
+                      // Tagline
+                      Text(
+                        AppConstants.appTagline,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: AppColors.white.withValues(alpha: 0.9),
+                              fontWeight: FontWeight.w400,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
 
-                        const SizedBox(height: 16),
+                      const SizedBox(height: 32),
 
-                        // Tagline
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32),
-                          child: Text(
-                            AppConstants.appTagline,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
+                      // Company Name
+                      Text(
+                        AppConstants.companyName,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: AppColors.white.withValues(alpha: 0.8),
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.8,
+                            ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Est. year
+                      Text(
+                        'EST. 2018',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.goldAccent,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 1.5,
+                            ),
+                      ),
+
+                      const SizedBox(height: 64),
+
+                      // Loading indicator
+                      SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.white.withValues(alpha: 0.8),
                           ),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // Established year
-                        Text(
-                          'EST. 2018',
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: AppColors.goldAccent,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.5,
-                              ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 60),
-
-              // Loading indicator
-              AnimatedBuilder(
-                animation: _fadeAnimation,
-                builder: (context, child) {
-                  return Opacity(
-                    opacity: _fadeAnimation.value * 0.7,
-                    child: const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primaryRed,
+                          strokeWidth: 3,
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ],
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),

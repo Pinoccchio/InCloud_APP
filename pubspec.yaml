@@ -48,6 +48,9 @@ dependencies:
   flutter_svg: ^2.0.9
   lottie: ^3.3.1
 
+  # URL handling
+  url_launcher: ^6.1.12
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8

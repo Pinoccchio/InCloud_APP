@@ -1,113 +1,200 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:form_builder_validators/form_builder_validators.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/utils/validators.dart';
-import '../../providers/auth_provider.dart';
-import '../../widgets/dialogs/success_dialog.dart';
+import '../../services/auth_service.dart';
+import '../../widgets/success_dialog.dart';
+import '../../widgets/error_dialog.dart';
 
-class SignupScreen extends ConsumerStatefulWidget {
+class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
   @override
-  ConsumerState<SignupScreen> createState() => _SignupScreenState();
+  State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _SignupScreenState extends ConsumerState<SignupScreen> {
-  final _formKey = GlobalKey<FormBuilderState>();
+class _SignupScreenState extends State<SignupScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _acceptTerms = false;
+  bool _agreeToTerms = false;
+  bool _isLoading = false;
 
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   void _handleSignup() async {
-    if (_formKey.currentState?.saveAndValidate() ?? false) {
-      if (!_acceptTerms) {
-        _showErrorSnackbar('Please accept the terms and conditions');
+    if (_formKey.currentState?.validate() ?? false) {
+      if (!_agreeToTerms) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Please agree to the terms and conditions'),
+            backgroundColor: AppColors.error,
+          ),
+        );
         return;
       }
 
-      final formData = _formKey.currentState!.value;
-      final fullName = formData['fullName'] as String;
-      final email = formData['email'] as String;
-      final phone = formData['phone'] as String;
-      final password = formData['password'] as String;
+      setState(() => _isLoading = true);
 
-      // Auto-assign the main branch ID
-      const mainBranchId = AppConstants.mainBranchId;
+      final result = await AuthService.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        fullName: _fullNameController.text.trim(),
+        phone: _phoneController.text.trim(),
+      );
 
-      await ref.read(authProvider.notifier).signUp(
-        email: email,
-        password: password,
-        fullName: fullName,
-        phone: phone,
-        preferredBranchId: mainBranchId,
+      if (mounted) {
+        setState(() => _isLoading = false);
+
+        if (result.isSuccess) {
+          // Show success dialog with go back to sign in button
+          SuccessDialog.show(
+            context: context,
+            title: 'Success',
+            message: result.message,
+            buttonText: 'Go back to sign in',
+            onButtonPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+              Navigator.of(context).pop(); // Go back to login screen
+            },
+          );
+        } else {
+          // Show error dialog
+          ErrorDialog.show(
+            context: context,
+            title: 'Sign Up Failed',
+            message: result.message,
+            buttonText: 'Try Again',
+          );
+        }
+      }
+    }
+  }
+
+  void _goBackToLogin() {
+    Navigator.of(context).pop();
+  }
+
+  // Format Philippine phone number to international format
+  String _formatPhoneNumber(String input) {
+    // Remove all non-digit characters
+    String digitsOnly = input.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Handle different input formats
+    if (digitsOnly.startsWith('639') && digitsOnly.length == 12) {
+      // Already in correct format without +, just add +
+      return '+$digitsOnly';
+    } else if (digitsOnly.startsWith('09') && digitsOnly.length == 11) {
+      // Philippine mobile format 09XXXXXXXXX, convert to +639XXXXXXXXX
+      return '+63${digitsOnly.substring(1)}';
+    } else if (digitsOnly.startsWith('9') && digitsOnly.length == 10) {
+      // Missing leading 0, assume Philippine mobile 9XXXXXXXXX
+      return '+63$digitsOnly';
+    } else if (input.startsWith('+639') && digitsOnly.length == 12) {
+      // Already properly formatted
+      return input;
+    }
+
+    // If none of the above, return the input as-is (for other formats)
+    return input;
+  }
+
+  // Handle phone number input changes
+  void _onPhoneChanged(String value) {
+    String formatted = _formatPhoneNumber(value);
+
+    // Only update if the formatted value is different
+    if (formatted != value) {
+      _phoneController.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
       );
     }
   }
 
-  void _showErrorSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  String? _validateFullName(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your full name';
+    }
+    if (value.trim().split(' ').length < 2) {
+      return 'Please enter your first and last name';
+    }
+    return null;
   }
 
-  void _showSuccessSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your email';
+    }
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+      return 'Please enter a valid email';
+    }
+    return null;
   }
 
-  void _goToLogin() {
-    context.go('/login');
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your phone number';
+    }
+
+    // Remove all non-digit characters for validation
+    String digitsOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Check for valid Philippine mobile number formats
+    if (value.startsWith('+639') && digitsOnly.length == 12) {
+      // International format +639XXXXXXXXX (12 digits total)
+      return null;
+    } else if (value.startsWith('09') && digitsOnly.length == 11) {
+      // Local format 09XXXXXXXXX (11 digits total)
+      return null;
+    } else if (digitsOnly.startsWith('639') && digitsOnly.length == 12) {
+      // International without + sign
+      return null;
+    } else if (digitsOnly.startsWith('9') && digitsOnly.length == 10) {
+      // Missing leading 0
+      return null;
+    }
+
+    return 'Please enter a valid Philippine mobile number (e.g., 09514575745)';
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter a password';
+    }
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (!RegExp(r'^(?=.*[a-zA-Z])(?=.*\d)').hasMatch(value)) {
+      return 'Password must contain letters and numbers';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please confirm your password';
+    }
+    if (value != _passwordController.text) {
+      return 'Passwords do not match';
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-    final isLoading = authState.isLoading;
-
-    // Listen to auth state changes for errors and success messages
-    ref.listen<AuthState>(authProvider, (previous, next) {
-      if (mounted) {
-        // Handle success messages with dialogs
-        if (next.successMessage != null) {
-          final email = _formKey.currentState?.value['email'] as String? ?? '';
-          final fullName = _formKey.currentState?.value['fullName'] as String? ?? 'User';
-
-          // Clear the success message first
-          ref.read(authProvider.notifier).clearSuccessMessage();
-
-          // Show appropriate success dialog based on message content
-          if (next.successMessage!.contains('check your email')) {
-            // Email confirmation required
-            context.showSignupSuccess(email);
-          } else if (next.successMessage!.contains('sign in with your new credentials')) {
-            // Direct signup success (no email confirmation needed)
-            context.showSignupComplete(fullName);
-          }
-        }
-
-        // Handle error messages
-        if (next.error != null) {
-          _showErrorSnackbar(next.error!);
-          // Clear the error after showing it
-          ref.read(authProvider.notifier).clearError();
-        }
-      }
-    });
-
     return Scaffold(
       backgroundColor: AppColors.surfacePrimary,
       appBar: AppBar(
@@ -118,342 +205,393 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             Icons.arrow_back,
             color: AppColors.textPrimary,
           ),
-          onPressed: () => context.pop(),
+          onPressed: _goBackToLogin,
+        ),
+        title: Text(
+          'Create Account',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppConstants.largePadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Logo
-              Center(
-                child: Container(
-                  width: 100,
-                  height: 100,
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Logo
+                Center(
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(50),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryRed.withValues(alpha: 0.2),
+                          blurRadius: 15,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(50),
+                      child: Image.asset(
+                        AppConstants.logoAssetPath,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Title and subtitle
+                Text(
+                  'Join ${AppConstants.appName}',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  'Create your account to get started',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // Full Name field
+                TextFormField(
+                  controller: _fullNameController,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  validator: _validateFullName,
+                  decoration: InputDecoration(
+                    labelText: 'Full Name',
+                    hintText: 'Enter your full name',
+                    prefixIcon: const Icon(
+                      Icons.person_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Email field
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  validator: _validateEmail,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'Enter your email address',
+                    prefixIcon: const Icon(
+                      Icons.email_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Phone field
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                  validator: _validatePhone,
+                  onChanged: _onPhoneChanged,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    hintText: 'Enter your phone number (e.g., 09514575745)',
+                    prefixIcon: const Icon(
+                      Icons.phone_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Branch assignment display (read-only)
+                Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(50),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryRed.withValues(alpha: 0.2),
-                        blurRadius: 15,
-                        spreadRadius: 2,
+                    color: AppColors.gray100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.gray300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.business,
+                        color: AppColors.primaryBlue,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Your Branch Assignment',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              AppConstants.mainBranchName,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              AppConstants.mainBranchLocation,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(50),
-                    child: Image.asset(
-                      AppConstants.logoAssetPath,
-                      fit: BoxFit.cover,
+                ),
+
+                const SizedBox(height: 16),
+
+                // Password field
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.next,
+                  validator: _validatePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Create a strong password',
+                    prefixIcon: const Icon(
+                      Icons.lock_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
                     ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-              // Title and subtitle
-              Text(
-                AppConstants.signupTitle,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
+                // Confirm Password field
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  textInputAction: TextInputAction.done,
+                  validator: _validateConfirmPassword,
+                  onFieldSubmitted: (_) => _handleSignup(),
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    hintText: 'Confirm your password',
+                    prefixIcon: const Icon(
+                      Icons.lock_outlined,
+                      color: AppColors.primaryBlue,
                     ),
-              ),
-
-              const SizedBox(height: 8),
-
-              Text(
-                AppConstants.signupSubtitle,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Signup form
-              FormBuilder(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Full name field
-                    FormBuilderTextField(
-                      name: 'fullName',
-                      decoration: InputDecoration(
-                        labelText: AppConstants.fullNameLabel,
-                        prefixIcon: const Icon(
-                          Icons.person_outlined,
-                          color: AppColors.primaryBlue,
-                        ),
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      validator: FormBuilderValidators.compose([
-                        FormBuilderValidators.required(),
-                        (value) => Validators.validateFullName(value),
-                      ]),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Email field
-                    FormBuilderTextField(
-                      name: 'email',
-                      decoration: InputDecoration(
-                        labelText: AppConstants.emailLabel,
-                        prefixIcon: const Icon(
-                          Icons.email_outlined,
-                          color: AppColors.primaryBlue,
-                        ),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      validator: FormBuilderValidators.compose([
-                        FormBuilderValidators.required(),
-                        (value) => Validators.validateEmail(value),
-                      ]),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Phone number field
-                    FormBuilderTextField(
-                      name: 'phone',
-                      decoration: InputDecoration(
-                        labelText: AppConstants.phoneLabel,
-                        prefixIcon: const Icon(
-                          Icons.phone_outlined,
-                          color: AppColors.primaryBlue,
-                        ),
-                        hintText: '09xxxxxxxxx',
-                      ),
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.next,
-                      inputFormatters: [
-                        PhilippinePhoneInputFormatter(),
-                      ],
-                      validator: FormBuilderValidators.compose([
-                        FormBuilderValidators.required(),
-                        (value) => Validators.validatePhoneNumber(value),
-                      ]),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Branch location (read-only, auto-assigned)
-                    FormBuilderTextField(
-                      name: 'branchPreference',
-                      decoration: InputDecoration(
-                        labelText: 'Branch Location',
-                        prefixIcon: const Icon(
-                          Icons.location_on,
-                          color: AppColors.primaryBlue,
-                        ),
-                        suffixIcon: const Icon(
-                          Icons.lock_outlined,
-                          size: 18,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      initialValue: AppConstants.fullBranchDisplay,
-                      readOnly: true,
-                      enabled: false,
-                      style: TextStyle(
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                         color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
                       ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Password field
-                    FormBuilderTextField(
-                      name: 'password',
-                      decoration: InputDecoration(
-                        labelText: AppConstants.passwordLabel,
-                        prefixIcon: const Icon(
-                          Icons.lock_outlined,
-                          color: AppColors.primaryBlue,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: AppColors.textSecondary,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                      obscureText: _obscurePassword,
-                      textInputAction: TextInputAction.next,
-                      validator: FormBuilderValidators.compose([
-                        FormBuilderValidators.required(),
-                        (value) => Validators.validatePassword(value),
-                      ]),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Confirm password field
-                    FormBuilderTextField(
-                      name: 'confirmPassword',
-                      decoration: InputDecoration(
-                        labelText: AppConstants.confirmPasswordLabel,
-                        prefixIcon: const Icon(
-                          Icons.lock_outlined,
-                          color: AppColors.primaryBlue,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureConfirmPassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: AppColors.textSecondary,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscureConfirmPassword = !_obscureConfirmPassword;
-                            });
-                          },
-                        ),
-                      ),
-                      obscureText: _obscureConfirmPassword,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _handleSignup(),
-                      validator: (value) {
-                        final password = _formKey.currentState?.value['password'];
-                        return Validators.validateConfirmPassword(value, password);
+                      onPressed: () {
+                        setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
                       },
                     ),
-
-                    const SizedBox(height: 24),
-
-                    // Terms and conditions checkbox
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Checkbox(
-                          value: _acceptTerms,
-                          onChanged: (value) {
-                            setState(() {
-                              _acceptTerms = value ?? false;
-                            });
-                          },
-                          activeColor: AppColors.primaryBlue,
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _acceptTerms = !_acceptTerms;
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: RichText(
-                                text: TextSpan(
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
-                                  children: [
-                                    const TextSpan(text: 'I agree to the '),
-                                    TextSpan(
-                                      text: 'Terms and Conditions',
-                                      style: TextStyle(
-                                        color: AppColors.primaryBlue,
-                                        fontWeight: FontWeight.w500,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
-                                    const TextSpan(text: ' and '),
-                                    TextSpan(
-                                      text: 'Privacy Policy',
-                                      style: TextStyle(
-                                        color: AppColors.primaryBlue,
-                                        fontWeight: FontWeight.w500,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-
-                    const SizedBox(height: 32),
-
-                    // Signup button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isLoading ? null : _handleSignup,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryRed,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppColors.white,
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                AppConstants.signupButton,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.white,
-                                ),
-                              ),
-                      ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    ),
+                  ),
+                ),
 
-                    const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-                    // Login link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          AppConstants.alreadyHaveAccountText,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                // Terms and conditions
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _agreeToTerms,
+                      onChanged: (value) => setState(() => _agreeToTerms = value ?? false),
+                      activeColor: AppColors.primaryBlue,
+                    ),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: AppColors.textSecondary,
                               ),
-                        ),
-                        TextButton(
-                          onPressed: _goToLogin,
-                          child: Text(
-                            AppConstants.signInLinkText,
-                            style: TextStyle(
-                              color: AppColors.primaryBlue,
-                              fontWeight: FontWeight.w600,
+                          children: [
+                            const TextSpan(text: 'I agree to the '),
+                            TextSpan(
+                              text: 'Terms of Service',
+                              style: TextStyle(
+                                color: AppColors.primaryBlue,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
+                            const TextSpan(text: ' and '),
+                            TextSpan(
+                              text: 'Privacy Policy',
+                              style: TextStyle(
+                                color: AppColors.primaryBlue,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 32),
+
+                // Signup button
+                SizedBox(
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _handleSignup,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryRed,
+                      foregroundColor: AppColors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 2,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Create Account',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Login link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Already have an account? ',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                    ),
+                    TextButton(
+                      onPressed: _goBackToLogin,
+                      child: Text(
+                        'Sign In',
+                        style: TextStyle(
+                          color: AppColors.primaryBlue,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

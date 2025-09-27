@@ -45,5 +45,17 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Deep linking URL scheme configuration -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.supabase.incloud</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>io.supabase.incloud</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
