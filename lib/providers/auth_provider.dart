@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
+import '../services/branch_service.dart';
 
 // Auth state provider - tracks the current auth state
 final authStateProvider = NotifierProvider<AuthStateNotifier, AuthStateData>(
@@ -25,6 +26,16 @@ final customerProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) asyn
   if (user == null) return null;
 
   return await AuthService.getCustomerProfile();
+});
+
+// Default branch provider - fetches the active branch from database
+final defaultBranchProvider = FutureProvider<BranchData?>((ref) async {
+  return await BranchService.getDefaultBranch();
+});
+
+// All active branches provider
+final activeBranchesProvider = FutureProvider<List<BranchData>>((ref) async {
+  return await BranchService.getAllActiveBranches();
 });
 
 // Auth state data class

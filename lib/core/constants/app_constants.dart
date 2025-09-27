@@ -88,11 +88,7 @@ class AppConstants {
   static const double defaultBorderRadius = 8.0;
   static const double cardElevation = 2.0;
 
-  // Business Location (single centralized location)
-  static const String mainBranchName = "J.A's Food Trading - Main Branch";
-  static const String mainBranchLocation = "Sampaloc, Manila, Philippines";
-  static const String mainBranchId = "ab2ecdc9-58ca-4445-8e56-2048e83c4819";
-  static const String fullBranchDisplay = "$mainBranchName, $mainBranchLocation";
+  // Business Location constants removed - now using dynamic branch data from database
 
   // Minimum Requirements
   static const int minPasswordLength = 8;
