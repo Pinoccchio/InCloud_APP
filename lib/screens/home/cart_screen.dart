@@ -6,7 +6,9 @@ import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
 
 class CartScreen extends ConsumerWidget {
-  const CartScreen({super.key});
+  final void Function(int)? onNavigateToTab;
+
+  const CartScreen({super.key, this.onNavigateToTab});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -294,8 +296,8 @@ class CartScreen extends ConsumerWidget {
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () {
-              // Navigate to search/home screen
-              DefaultTabController.of(context)?.animateTo(1); // Search tab
+              // Navigate to search screen (index 1 in BottomNavigationBar)
+              onNavigateToTab?.call(1);
             },
             icon: const Icon(Icons.search),
             label: const Text('Browse Products'),
@@ -540,12 +542,16 @@ class CartScreen extends ConsumerWidget {
       return;
     }
 
+    // Capture context-dependent objects before async operation
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     try {
       // Show loading dialog
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const AlertDialog(
+        builder: (dialogContext) => const AlertDialog(
           content: Row(
             children: [
               CircularProgressIndicator(),
@@ -564,20 +570,27 @@ class CartScreen extends ConsumerWidget {
       );
 
       // Close loading dialog
-      Navigator.of(context).pop();
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
 
       if (orderId != null) {
-        // Order created successfully
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Order created successfully - clear cart after successful order
+        ref.read(cartProvider.notifier).clearCart();
+
+        // Safe orderId display
+        final displayOrderId = orderId.length >= 8 ? orderId.substring(0, 8) : orderId;
+
+        scaffoldMessenger.showSnackBar(
           SnackBar(
-            content: Text('Order #${orderId.substring(0, 8)} created successfully!'),
+            content: Text('Order #$displayOrderId created successfully!'),
             backgroundColor: AppColors.success,
             action: SnackBarAction(
               label: 'View Orders',
               textColor: AppColors.white,
               onPressed: () {
-                // Navigate to orders tab
-                DefaultTabController.of(context)?.animateTo(2); // Orders tab
+                // Navigate to orders tab (index 3 in BottomNavigationBar)
+                onNavigateToTab?.call(3);
               },
             ),
           ),
@@ -585,7 +598,7 @@ class CartScreen extends ConsumerWidget {
       } else {
         // Order creation failed
         final error = ref.read(orderErrorProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text(error ?? 'Failed to create order. Please try again.'),
             backgroundColor: AppColors.error,
@@ -594,9 +607,11 @@ class CartScreen extends ConsumerWidget {
       }
     } catch (e) {
       // Close loading dialog if still open
-      Navigator.of(context).pop();
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Error creating order: ${e.toString()}'),
           backgroundColor: AppColors.error,

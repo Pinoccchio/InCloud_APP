@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import '../core/utils/date_utils.dart' as app_date_utils;
 
 class AuthService {
   static final SupabaseClient _client = Supabase.instance.client;
@@ -296,7 +297,7 @@ class AuthService {
       final Map<String, dynamic> updateData = {
         'full_name': fullName.trim(),
         'phone': phone.trim(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': app_date_utils.DateUtils.nowInUtcString(),
       };
 
       // Add address if provided

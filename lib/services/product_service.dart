@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import '../models/database_types.dart';
+import '../core/utils/date_utils.dart' as app_date_utils;
 
 class ProductService {
   static final SupabaseClient _client = Supabase.instance.client;
@@ -436,8 +437,8 @@ class ProductService {
         productId: product.id,
         branchId: branchId,
         availableQuantity: 0,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        createdAt: app_date_utils.DateUtils.nowInUtc(),
+        updatedAt: app_date_utils.DateUtils.nowInUtc(),
       ),
     );
 
@@ -453,8 +454,8 @@ class ProductService {
         productId: product.id,
         branchId: branchId,
         availableQuantity: 0,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        createdAt: app_date_utils.DateUtils.nowInUtc(),
+        updatedAt: app_date_utils.DateUtils.nowInUtc(),
       ),
     );
 

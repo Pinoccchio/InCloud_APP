@@ -16,13 +16,26 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    const HomeTab(),
-    const SearchScreen(),
-    const CartScreen(),
-    const OrdersScreen(),
-    const ProfileScreen(),
-  ];
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize screens with navigation callback
+    _screens = [
+      const HomeTab(),
+      const SearchScreen(),
+      CartScreen(onNavigateToTab: _navigateToTab),
+      OrdersScreen(onNavigateToTab: _navigateToTab),
+      const ProfileScreen(),
+    ];
+  }
+
+  void _navigateToTab(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

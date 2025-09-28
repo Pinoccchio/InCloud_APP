@@ -1,6 +1,8 @@
 // Database type definitions matching Supabase schema
 // This file defines the data models for the InCloud mobile app
 
+import '../core/utils/date_utils.dart' as app_date_utils;
+
 // Enums
 enum ProductStatus { active, inactive, discontinued }
 
@@ -61,44 +63,56 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    return Product(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      barcode: json['barcode'] as String?,
-      sku: json['sku'] as String?,
-      images: json['images'] != null
-          ? List<String>.from(json['images'])
-          : [],
-      unitOfMeasure: json['unit_of_measure'] as String? ?? 'pieces',
-      isFrozen: json['is_frozen'] as bool? ?? true,
-      status: ProductStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => ProductStatus.active,
-      ),
-      categoryId: json['category_id'] as String?,
-      brandId: json['brand_id'] as String?,
-      createdBy: json['created_by'] as String?,
-      updatedBy: json['updated_by'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
-      category: json['categories'] != null
-          ? Category.fromJson(json['categories'])
-          : null,
-      brand: json['brands'] != null
-          ? Brand.fromJson(json['brands'])
-          : null,
-      priceTiers: json['price_tiers'] != null
-          ? (json['price_tiers'] as List)
-              .map((tier) => PriceTier.fromJson(tier))
-              .toList()
-          : [],
-      inventory: json['inventory'] != null
-          ? (json['inventory'] as List)
-              .map((inv) => Inventory.fromJson(inv))
-              .toList()
-          : [],
-    );
+    try {
+      print('DEBUG: Parsing Product from JSON: ${json.keys.toList()}');
+
+      return Product(
+        id: json['id']?.toString() ?? '',
+        name: json['name']?.toString() ?? 'Unknown Product',
+        description: json['description']?.toString(),
+        barcode: json['barcode']?.toString(),
+        sku: json['sku']?.toString(),
+        images: json['images'] != null
+            ? List<String>.from(json['images'])
+            : [],
+        unitOfMeasure: json['unit_of_measure']?.toString() ?? 'pieces',
+        isFrozen: json['is_frozen'] == true,
+        status: ProductStatus.values.firstWhere(
+          (e) => e.name == json['status']?.toString(),
+          orElse: () => ProductStatus.active,
+        ),
+        categoryId: json['category_id']?.toString(),
+        brandId: json['brand_id']?.toString(),
+        createdBy: json['created_by']?.toString(),
+        updatedBy: json['updated_by']?.toString(),
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'].toString())
+            : app_date_utils.DateUtils.nowInUtc(),
+        updatedAt: json['updated_at'] != null
+            ? DateTime.parse(json['updated_at'].toString())
+            : app_date_utils.DateUtils.nowInUtc(),
+        category: json['categories'] != null
+            ? Category.fromJson(json['categories'])
+            : null,
+        brand: json['brands'] != null
+            ? Brand.fromJson(json['brands'])
+            : null,
+        priceTiers: json['price_tiers'] != null
+            ? (json['price_tiers'] as List)
+                .map((tier) => PriceTier.fromJson(tier))
+                .toList()
+            : [],
+        inventory: json['inventory'] != null
+            ? (json['inventory'] as List)
+                .map((inv) => Inventory.fromJson(inv))
+                .toList()
+            : [],
+      );
+    } catch (e) {
+      print('ERROR: Failed to parse Product from JSON: $e');
+      print('JSON data: $json');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -152,7 +166,7 @@ class Category {
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
-          : DateTime.now(), // Default fallback for nested objects
+          : app_date_utils.DateUtils.nowInUtc(), // Default fallback for nested objects
       createdBy: json['created_by'] as String?,
       updatedBy: json['updated_by'] as String?,
     );
@@ -202,7 +216,7 @@ class Brand {
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
-          : DateTime.now(), // Default fallback for nested objects
+          : app_date_utils.DateUtils.nowInUtc(), // Default fallback for nested objects
       createdBy: json['created_by'] as String?,
       updatedBy: json['updated_by'] as String?,
     );
@@ -263,10 +277,10 @@ class PriceTier {
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
-          : DateTime.now(), // Default fallback for nested objects
+          : app_date_utils.DateUtils.nowInUtc(), // Default fallback for nested objects
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
-          : DateTime.now(), // Default fallback for nested objects
+          : app_date_utils.DateUtils.nowInUtc(), // Default fallback for nested objects
       createdBy: json['created_by'] as String?,
       updatedBy: json['updated_by'] as String?,
     );
@@ -358,10 +372,10 @@ class Inventory {
       autoReorder: json['auto_reorder'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
-          : DateTime.now(), // Default fallback for nested objects
+          : app_date_utils.DateUtils.nowInUtc(), // Default fallback for nested objects
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
-          : DateTime.now(), // Default fallback for nested objects
+          : app_date_utils.DateUtils.nowInUtc(), // Default fallback for nested objects
       createdBy: json['created_by'] as String?,
       updatedBy: json['updated_by'] as String?,
       batches: json['product_batches'] != null
@@ -416,16 +430,16 @@ class ProductBatch {
       quantity: json['quantity'] as int,
       receivedDate: json['received_date'] != null
           ? DateTime.parse(json['received_date'] as String)
-          : DateTime.now(), // Default fallback for nested objects
+          : app_date_utils.DateUtils.nowInUtc(), // Default fallback for nested objects
       expirationDate: DateTime.parse(json['expiration_date'] as String),
       supplierInfo: json['supplier_info'] as Map<String, dynamic>? ?? {},
       status: json['status'] as String? ?? 'active',
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
-          : DateTime.now(), // Default fallback for nested objects
+          : app_date_utils.DateUtils.nowInUtc(), // Default fallback for nested objects
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
-          : DateTime.now(), // Default fallback for nested objects
+          : app_date_utils.DateUtils.nowInUtc(), // Default fallback for nested objects
       costPerUnit: json['cost_per_unit'] != null
           ? (json['cost_per_unit'] as num).toDouble()
           : null,
@@ -438,14 +452,14 @@ class ProductBatch {
 
   // Helper method to check if batch is expiring soon (within 7 days)
   bool get isExpiringSoon {
-    final now = DateTime.now();
+    final now = app_date_utils.DateUtils.nowInUtc();
     final daysUntilExpiry = expirationDate.difference(now).inDays;
     return daysUntilExpiry <= 7 && daysUntilExpiry > 0;
   }
 
   // Helper method to check if batch is expired
   bool get isExpired {
-    return expirationDate.isBefore(DateTime.now());
+    return expirationDate.isBefore(app_date_utils.DateUtils.nowInUtc());
   }
 }
 
@@ -483,13 +497,13 @@ class CartItem {
     final totalPrice = unitPrice * quantity;
 
     return CartItem(
-      id: '${product.id}_${tier.name}_${DateTime.now().millisecondsSinceEpoch}',
+      id: '${product.id}_${tier.name}_${app_date_utils.DateUtils.nowInUtc().millisecondsSinceEpoch}',
       product: product,
       selectedTier: tier,
       quantity: quantity,
       unitPrice: unitPrice,
       totalPrice: totalPrice,
-      addedAt: DateTime.now(),
+      addedAt: app_date_utils.DateUtils.nowInUtc(),
     );
   }
 
@@ -539,6 +553,7 @@ class Order {
 
   // Related data
   final List<OrderItem> items;
+  final List<OrderStatusHistory> statusHistory;
 
   Order({
     required this.id,
@@ -560,42 +575,135 @@ class Order {
     required this.createdAt,
     required this.updatedAt,
     this.items = const [],
+    this.statusHistory = const [],
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
-    return Order(
-      id: json['id'] as String,
-      orderNumber: json['order_number'] as String,
-      customerId: json['customer_id'] as String?,
-      branchId: json['branch_id'] as String,
-      status: OrderStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => OrderStatus.pending,
-      ),
-      paymentStatus: PaymentStatus.values.firstWhere(
-        (e) => e.name == json['payment_status'],
-        orElse: () => PaymentStatus.pending,
-      ),
-      orderDate: DateTime.parse(json['order_date'] as String),
-      deliveryDate: json['delivery_date'] != null
-          ? DateTime.parse(json['delivery_date'])
-          : null,
-      deliveryAddress: json['delivery_address'] as Map<String, dynamic>?,
-      subtotal: (json['subtotal'] as num).toDouble(),
-      discountAmount: (json['discount_amount'] as num? ?? 0).toDouble(),
-      taxAmount: (json['tax_amount'] as num? ?? 0).toDouble(),
-      totalAmount: (json['total_amount'] as num).toDouble(),
-      notes: json['notes'] as String?,
-      createdBy: json['created_by'] as String?,
-      assignedTo: json['assigned_to'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
-      items: json['order_items'] != null
-          ? (json['order_items'] as List)
-              .map((item) => OrderItem.fromJson(item))
-              .toList()
-          : [],
-    );
+    try {
+      // Helper function for safe DateTime parsing
+      DateTime parseDateTime(dynamic value, DateTime fallback) {
+        if (value == null) return fallback;
+        try {
+          return DateTime.parse(value.toString());
+        } catch (e) {
+          print('Warning: Failed to parse DateTime: $value, using fallback');
+          return fallback;
+        }
+      }
+
+      // Helper function for safe number parsing
+      double parseDouble(dynamic value, double fallback) {
+        if (value == null) return fallback;
+        try {
+          return (value as num).toDouble();
+        } catch (e) {
+          print('Warning: Failed to parse double: $value, using fallback: $fallback');
+          return fallback;
+        }
+      }
+
+      final now = DateTime.now();
+
+      return Order(
+        id: json['id']?.toString() ?? '',
+        orderNumber: json['order_number']?.toString() ?? 'UNKNOWN-ORDER',
+        customerId: json['customer_id']?.toString(),
+        branchId: json['branch_id']?.toString() ?? '',
+        status: OrderStatus.values.firstWhere(
+          (e) => e.name == json['status']?.toString(),
+          orElse: () => OrderStatus.pending,
+        ),
+        paymentStatus: PaymentStatus.values.firstWhere(
+          (e) => e.name == json['payment_status']?.toString(),
+          orElse: () => PaymentStatus.pending,
+        ),
+        orderDate: parseDateTime(json['order_date'], now),
+        deliveryDate: json['delivery_date'] != null
+            ? parseDateTime(json['delivery_date'], now)
+            : null,
+        deliveryAddress: json['delivery_address'] is Map<String, dynamic>
+            ? json['delivery_address'] as Map<String, dynamic>
+            : null,
+        subtotal: parseDouble(json['subtotal'], 0.0),
+        discountAmount: parseDouble(json['discount_amount'], 0.0),
+        taxAmount: parseDouble(json['tax_amount'], 0.0),
+        totalAmount: parseDouble(json['total_amount'], 0.0),
+        notes: json['notes']?.toString(),
+        createdBy: json['created_by']?.toString(),
+        assignedTo: json['assigned_to']?.toString(),
+        createdAt: parseDateTime(json['created_at'], now),
+        updatedAt: parseDateTime(json['updated_at'], now),
+        items: _parseOrderItems(json['order_items']),
+        statusHistory: _parseOrderStatusHistory(json['order_status_history']),
+      );
+    } catch (e) {
+      print('Error parsing Order from JSON: $e');
+      print('JSON data: $json');
+      // Return a minimal valid order to prevent crashes
+      final now = DateTime.now();
+      return Order(
+        id: json['id']?.toString() ?? 'unknown',
+        orderNumber: json['order_number']?.toString() ?? 'ERROR-ORDER',
+        branchId: json['branch_id']?.toString() ?? 'unknown',
+        orderDate: now,
+        createdAt: now,
+        updatedAt: now,
+        items: [],
+        statusHistory: [],
+      );
+    }
+  }
+
+  // Helper method for parsing order items safely
+  static List<OrderItem> _parseOrderItems(dynamic itemsData) {
+    if (itemsData == null) return [];
+
+    try {
+      if (itemsData is List) {
+        return itemsData
+            .map((item) {
+              try {
+                return OrderItem.fromJson(item);
+              } catch (e) {
+                print('Warning: Failed to parse order item: $e');
+                return null;
+              }
+            })
+            .where((item) => item != null)
+            .cast<OrderItem>()
+            .toList();
+      }
+    } catch (e) {
+      print('Error parsing order items: $e');
+    }
+
+    return [];
+  }
+
+  // Helper method for parsing order status history safely
+  static List<OrderStatusHistory> _parseOrderStatusHistory(dynamic historyData) {
+    if (historyData == null) return [];
+
+    try {
+      if (historyData is List) {
+        return historyData
+            .map((history) {
+              try {
+                return OrderStatusHistory.fromJson(history);
+              } catch (e) {
+                print('Warning: Failed to parse order status history: $e');
+                return null;
+              }
+            })
+            .where((history) => history != null)
+            .cast<OrderStatusHistory>()
+            .toList();
+      }
+    } catch (e) {
+      print('Error parsing order status history: $e');
+    }
+
+    return [];
   }
 }
 
@@ -627,23 +735,94 @@ class OrderItem {
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
-    return OrderItem(
-      id: json['id'] as String,
-      orderId: json['order_id'] as String,
-      productId: json['product_id'] as String,
-      pricingTier: PricingTier.values.firstWhere(
-        (e) => e.name == json['pricing_tier'],
-        orElse: () => PricingTier.retail,
-      ),
-      quantity: json['quantity'] as int,
-      unitPrice: (json['unit_price'] as num).toDouble(),
-      totalPrice: (json['total_price'] as num).toDouble(),
-      fulfillmentStatus: json['fulfillment_status'] as String? ?? 'pending',
-      createdAt: DateTime.parse(json['created_at'] as String),
-      product: json['products'] != null
-          ? Product.fromJson(json['products'])
-          : null,
-    );
+    try {
+      print('DEBUG: Parsing OrderItem from JSON: ${json.keys.toList()}');
+      // Helper function for safe number parsing
+      double parseDouble(dynamic value, double fallback) {
+        if (value == null) return fallback;
+        try {
+          return (value as num).toDouble();
+        } catch (e) {
+          print('Warning: Failed to parse double in OrderItem: $value, using fallback: $fallback');
+          return fallback;
+        }
+      }
+
+      // Helper function for safe int parsing
+      int parseInt(dynamic value, int fallback) {
+        if (value == null) return fallback;
+        try {
+          return (value as num).toInt();
+        } catch (e) {
+          print('Warning: Failed to parse int in OrderItem: $value, using fallback: $fallback');
+          return fallback;
+        }
+      }
+
+      // Helper function for safe DateTime parsing
+      DateTime parseDateTime(dynamic value, DateTime fallback) {
+        if (value == null) return fallback;
+        try {
+          return DateTime.parse(value.toString());
+        } catch (e) {
+          print('Warning: Failed to parse DateTime in OrderItem: $value, using fallback');
+          return fallback;
+        }
+      }
+
+      // Safe product parsing
+      Product? parseProduct(dynamic productData) {
+        if (productData == null) {
+          print('DEBUG: Product data is null in OrderItem');
+          return null;
+        }
+        try {
+          print('DEBUG: Parsing product data in OrderItem: $productData');
+          final product = Product.fromJson(productData);
+          print('DEBUG: Successfully parsed product: ${product.name}');
+          return product;
+        } catch (e) {
+          print('WARNING: Failed to parse Product in OrderItem: $e');
+          print('DEBUG: Product data that failed: $productData');
+          return null;
+        }
+      }
+
+      final parsedProduct = parseProduct(json['products']);
+      print('DEBUG: Final parsed product for OrderItem: ${parsedProduct?.name ?? 'NULL'}');
+
+      return OrderItem(
+        id: json['id']?.toString() ?? '',
+        orderId: json['order_id']?.toString() ?? '',
+        productId: json['product_id']?.toString() ?? '',
+        pricingTier: PricingTier.values.firstWhere(
+          (e) => e.name == json['pricing_tier']?.toString(),
+          orElse: () => PricingTier.retail,
+        ),
+        quantity: parseInt(json['quantity'], 1),
+        unitPrice: parseDouble(json['unit_price'], 0.0),
+        totalPrice: parseDouble(json['total_price'], 0.0),
+        fulfillmentStatus: json['fulfillment_status']?.toString() ?? 'pending',
+        createdAt: parseDateTime(json['created_at'], DateTime.now()),
+        product: parsedProduct,
+      );
+    } catch (e) {
+      print('Error parsing OrderItem from JSON: $e');
+      print('JSON data: $json');
+      // Return a minimal valid order item to prevent crashes
+      return OrderItem(
+        id: json['id']?.toString() ?? 'unknown',
+        orderId: json['order_id']?.toString() ?? 'unknown',
+        productId: json['product_id']?.toString() ?? 'unknown',
+        pricingTier: PricingTier.retail,
+        quantity: 1,
+        unitPrice: 0.0,
+        totalPrice: 0.0,
+        fulfillmentStatus: 'pending',
+        createdAt: DateTime.now(),
+        product: null,
+      );
+    }
   }
 }
 
@@ -688,5 +867,62 @@ class Customer {
       updatedAt: DateTime.parse(json['updated_at'] as String),
       userId: json['user_id'] as String?,
     );
+  }
+}
+
+class OrderStatusHistory {
+  final String id;
+  final String orderId;
+  final OrderStatus? oldStatus;
+  final OrderStatus newStatus;
+  final String? changedByUserId;
+  final String? notes;
+  final DateTime createdAt;
+  final String? changedByName;
+
+  OrderStatusHistory({
+    required this.id,
+    required this.orderId,
+    this.oldStatus,
+    required this.newStatus,
+    this.changedByUserId,
+    this.notes,
+    required this.createdAt,
+    this.changedByName,
+  });
+
+  factory OrderStatusHistory.fromJson(Map<String, dynamic> json) {
+    try {
+      return OrderStatusHistory(
+        id: json['id']?.toString() ?? '',
+        orderId: json['order_id']?.toString() ?? '',
+        oldStatus: json['old_status'] != null
+            ? OrderStatus.values.firstWhere(
+                (e) => e.name == json['old_status']?.toString(),
+                orElse: () => OrderStatus.pending,
+              )
+            : null,
+        newStatus: OrderStatus.values.firstWhere(
+          (e) => e.name == json['new_status']?.toString(),
+          orElse: () => OrderStatus.pending,
+        ),
+        changedByUserId: json['changed_by_user_id']?.toString(),
+        notes: json['notes']?.toString(),
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'].toString())
+            : DateTime.now(),
+        changedByName: json['changed_by_name']?.toString(),
+      );
+    } catch (e) {
+      print('Error parsing OrderStatusHistory from JSON: $e');
+      print('JSON data: $json');
+      // Return a minimal valid status history to prevent crashes
+      return OrderStatusHistory(
+        id: json['id']?.toString() ?? 'unknown',
+        orderId: json['order_id']?.toString() ?? 'unknown',
+        newStatus: OrderStatus.pending,
+        createdAt: DateTime.now(),
+      );
+    }
   }
 }

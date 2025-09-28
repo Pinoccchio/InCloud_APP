@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/database_types.dart';
 import '../services/product_service.dart';
+import '../core/utils/date_utils.dart' as app_date_utils;
 
 // Product state class
 class ProductState {
@@ -288,8 +289,8 @@ class ProductNotifier extends Notifier<ProductState> {
         productId: productId,
         branchId: state.currentBranchId!,
         availableQuantity: 0,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        createdAt: app_date_utils.DateUtils.nowInUtc(),
+        updatedAt: app_date_utils.DateUtils.nowInUtc(),
       ),
     );
 

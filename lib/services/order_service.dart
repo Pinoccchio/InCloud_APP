@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import '../models/database_types.dart';
 import '../services/auth_service.dart';
+import '../core/utils/date_utils.dart' as app_date_utils;
 
 class OrderService {
   static final SupabaseClient _client = Supabase.instance.client;
@@ -41,7 +42,7 @@ class OrderService {
       final totalAmount = subtotal + taxAmount;
 
       // Generate order number
-      final orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch}';
+      final orderNumber = 'ORD-${app_date_utils.DateUtils.nowInUtc().millisecondsSinceEpoch}';
 
       print('   Order Number: $orderNumber');
       print('   Customer: $customerId');
@@ -55,14 +56,14 @@ class OrderService {
         'branch_id': branchId,
         'status': 'pending',
         'payment_status': 'pending',
-        'order_date': DateTime.now().toIso8601String(),
+        'order_date': app_date_utils.DateUtils.nowInUtcString(),
         'delivery_address': deliveryAddress ?? customerProfile['address'] ?? {},
         'subtotal': subtotal,
         'discount_amount': 0,
         'tax_amount': taxAmount,
         'total_amount': totalAmount,
         'notes': notes,
-        'created_by': null, // Customer orders don't have admin creator
+        'created_by_user_id': user.id, // User who created this order
       };
 
       final orderResponse = await _client
@@ -87,6 +88,23 @@ class OrderService {
 
       await _client.from('order_items').insert(orderItems);
       print('✅ ORDER ITEMS CREATED: ${orderItems.length} items');
+
+      // Create initial status history record
+      try {
+        await _client.from('order_status_history').insert({
+          'order_id': orderId,
+          'old_status': null, // No previous status for new orders
+          'new_status': 'pending',
+          'changed_by_user_id': user.id, // Customer who created the order
+          'notes': 'Order created',
+          'created_at': app_date_utils.DateUtils.nowInUtcString(),
+        });
+        print('✅ ORDER STATUS HISTORY CREATED: Initial pending status');
+      } catch (historyError) {
+        // Log warning but don't fail the entire order creation
+        print('⚠️ WARNING: Failed to create order status history: $historyError');
+        debugPrint('Order status history creation error: $historyError');
+      }
 
       return orderId;
     } catch (e) {
@@ -127,6 +145,14 @@ class OrderService {
                 images,
                 unit_of_measure
               )
+            ),
+            order_status_history!order_status_history_order_id_fkey (
+              id,
+              old_status,
+              new_status,
+              changed_by_user_id,
+              notes,
+              created_at
             )
           ''')
           .eq('customer_id', customerId)
@@ -169,6 +195,14 @@ class OrderService {
                   name
                 )
               )
+            ),
+            order_status_history!order_status_history_order_id_fkey (
+              id,
+              old_status,
+              new_status,
+              changed_by_user_id,
+              notes,
+              created_at
             )
           ''')
           .eq('id', orderId)
@@ -204,6 +238,18 @@ class OrderService {
         throw Exception('Order cannot be cancelled (status: ${order.status.name})');
       }
 
+      // Get current user and customer profile for proper attribution
+      final user = AuthService.currentUser;
+      if (user == null) {
+        throw Exception('User must be logged in to cancel orders');
+      }
+
+      final customerProfile = await AuthService.getCustomerProfile();
+      if (customerProfile == null) {
+        throw Exception('Customer profile not found');
+      }
+      // Customer ID not needed for order cancellation - order validation is sufficient
+
       // Update order status
       await _client
           .from('orders')
@@ -212,7 +258,7 @@ class OrderService {
             'notes': order.notes != null
                 ? '${order.notes}\nCancelled by customer: $reason'
                 : 'Cancelled by customer: $reason',
-            'updated_at': DateTime.now().toIso8601String(),
+            'updated_at': app_date_utils.DateUtils.nowInUtcString(),
           })
           .eq('id', orderId);
 
@@ -221,6 +267,18 @@ class OrderService {
           .from('order_items')
           .update({'fulfillment_status': 'cancelled'})
           .eq('order_id', orderId);
+
+      // Create status history record for cancellation
+      await _client
+          .from('order_status_history')
+          .insert({
+            'order_id': orderId,
+            'old_status': order.status.name,
+            'new_status': 'cancelled',
+            'changed_by_user_id': user.id, // User ID for proper attribution
+            'notes': reason,
+            'created_at': app_date_utils.DateUtils.nowInUtcString(),
+          });
 
       print('✅ ORDER CANCELLED SUCCESSFULLY');
       return true;
@@ -351,8 +409,7 @@ class OrderService {
 
   /// Check if order can be reordered
   static bool canReorderOrder(Order order) {
-    return order.status == OrderStatus.delivered ||
-           order.status == OrderStatus.cancelled;
+    return order.status == OrderStatus.delivered || order.status == OrderStatus.cancelled;
   }
 
   /// Get order status display info
