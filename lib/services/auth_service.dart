@@ -232,9 +232,9 @@ class AuthService {
     }
   }
 
-  // Get customer profile
+  // Get customer profile with branch information
   static Future<Map<String, dynamic>?> getCustomerProfile() async {
-    print('👤 FETCHING CUSTOMER PROFILE...');
+    print('👤 FETCHING CUSTOMER PROFILE WITH BRANCH DATA...');
 
     try {
       if (currentUser == null) {
@@ -242,25 +242,87 @@ class AuthService {
         return null;
       }
 
-      print('🔍 Querying customer profile for user ID: ${currentUser!.id}');
+      print('🔍 Querying customer profile with branch for user ID: ${currentUser!.id}');
       final response = await _client
           .from('customers')
-          .select()
+          .select('''
+            *,
+            branches!customers_preferred_branch_id_fkey (
+              id,
+              name,
+              address
+            )
+          ''')
           .eq('user_id', currentUser!.id)
           .maybeSingle();
 
       if (response != null) {
-        print('✅ CUSTOMER PROFILE FETCHED SUCCESSFULLY');
+        print('✅ CUSTOMER PROFILE WITH BRANCH FETCHED SUCCESSFULLY');
         print('   Profile: $response');
+
+        // Log branch information if available
+        if (response['branches'] != null) {
+          print('   Branch: ${response['branches']['name']}');
+        } else {
+          print('   No branch assigned to this customer');
+        }
       } else {
         print('⚠️ No customer profile found for user');
       }
 
       return response;
     } catch (e) {
-      print('❌ ERROR FETCHING CUSTOMER PROFILE: $e');
+      print('❌ ERROR FETCHING CUSTOMER PROFILE WITH BRANCH: $e');
       debugPrint('Error fetching customer profile: $e');
       return null;
+    }
+  }
+
+  // Update customer profile
+  static Future<AuthResult> updateCustomerProfile({
+    required String fullName,
+    required String phone,
+    Map<String, dynamic>? address,
+  }) async {
+    print('📝 UPDATING CUSTOMER PROFILE...');
+
+    try {
+      if (currentUser == null) {
+        print('❌ No current user found');
+        return AuthResult.error('You must be logged in to update your profile.');
+      }
+
+      print('🔍 Updating profile for user ID: ${currentUser!.id}');
+      final Map<String, dynamic> updateData = {
+        'full_name': fullName.trim(),
+        'phone': phone.trim(),
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      // Add address if provided
+      if (address != null) {
+        updateData['address'] = address;
+      }
+
+      await _client
+          .from('customers')
+          .update(updateData)
+          .eq('user_id', currentUser!.id);
+
+      print('✅ CUSTOMER PROFILE UPDATED SUCCESSFULLY');
+      return AuthResult.success(
+        user: currentUser!,
+        message: 'Profile updated successfully!',
+      );
+    } on PostgrestException catch (e) {
+      print('❌ POSTGREST ERROR UPDATING PROFILE:');
+      print('   Code: ${e.code}');
+      print('   Message: ${e.message}');
+      return AuthResult.error('Failed to update profile. Please try again.');
+    } catch (e) {
+      print('❌ ERROR UPDATING CUSTOMER PROFILE: $e');
+      debugPrint('Error updating customer profile: $e');
+      return AuthResult.error('An unexpected error occurred. Please try again.');
     }
   }
 

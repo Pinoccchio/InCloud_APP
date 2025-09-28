@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
+import '../../services/auth_service.dart';
 import '../onboarding/onboarding_screen.dart';
+import '../home/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -43,14 +45,29 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // Start animation
     _animationController.forward();
 
-    // Navigate to onboarding after 3 seconds
+    // Check auth state and navigate accordingly after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-        );
+        _checkAuthAndNavigate();
       }
     });
+  }
+
+  void _checkAuthAndNavigate() {
+    // Check if user is logged in
+    final isLoggedIn = AuthService.isLoggedIn;
+
+    if (isLoggedIn) {
+      // User is logged in, go to home screen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
+      // User is not logged in, go to onboarding
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+      );
+    }
   }
 
   @override

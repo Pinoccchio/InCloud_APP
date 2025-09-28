@@ -4,6 +4,7 @@ import '../../core/constants/app_constants.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/success_dialog.dart';
 import '../../widgets/error_dialog.dart';
+import '../home/home_screen.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -41,12 +42,17 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isLoading = false);
 
         if (result.isSuccess) {
-          // Show success message
-          SuccessDialog.show(
+          // Show success message and navigate to home
+          await SuccessDialog.show(
             context: context,
             title: 'Success',
             message: result.message,
             buttonText: 'Continue',
+            onButtonPressed: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              );
+            },
           );
         } else {
           // Show error message

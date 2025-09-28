@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
+import 'profile_screen.dart';
+import 'search_screen.dart';
+import 'cart_screen.dart';
+import 'orders_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,10 +17,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    const DashboardTab(),
-    const ProductsTab(),
-    const OrdersTab(),
-    const ProfileTab(),
+    const HomeTab(),
+    const SearchScreen(),
+    const CartScreen(),
+    const OrdersScreen(),
+    const ProfileScreen(),
   ];
 
   @override
@@ -34,12 +39,16 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 8,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
+            icon: Icon(Icons.home),
+            label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.inventory),
-            label: 'Products',
+            icon: Icon(Icons.search),
+            label: 'Search',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Cart',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long),
@@ -55,9 +64,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// Dashboard Tab
-class DashboardTab extends StatelessWidget {
-  const DashboardTab({super.key});
+// Home Tab (renamed from Dashboard)
+class HomeTab extends StatelessWidget {
+  const HomeTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -117,9 +126,9 @@ class DashboardTab extends StatelessWidget {
 
             const SizedBox(height: 32),
 
-            // Quick Stats Cards
+            // Product Categories
             Text(
-              'Quick Overview',
+              'Product Categories',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -130,22 +139,20 @@ class DashboardTab extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _buildStatCard(
+                  child: _buildCategoryCard(
                     context,
-                    'Total Products',
-                    '1,245',
-                    Icons.inventory,
+                    'Chicken',
+                    Icons.egg_outlined,
                     AppColors.primaryBlue,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildStatCard(
+                  child: _buildCategoryCard(
                     context,
-                    'Pending Orders',
-                    '23',
-                    Icons.pending_actions,
-                    AppColors.warning,
+                    'Seafood',
+                    Icons.set_meal_outlined,
+                    AppColors.success,
                   ),
                 ),
               ],
@@ -156,22 +163,20 @@ class DashboardTab extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _buildStatCard(
+                  child: _buildCategoryCard(
                     context,
-                    'Low Stock Items',
-                    '8',
-                    Icons.warning,
-                    AppColors.error,
+                    'Pork',
+                    Icons.lunch_dining_outlined,
+                    AppColors.warning,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildStatCard(
+                  child: _buildCategoryCard(
                     context,
-                    'Total Revenue',
-                    '₱45,230',
-                    Icons.trending_up,
-                    AppColors.success,
+                    'Beef',
+                    Icons.restaurant_outlined,
+                    AppColors.error,
                   ),
                 ),
               ],
@@ -179,9 +184,9 @@ class DashboardTab extends StatelessWidget {
 
             const SizedBox(height: 32),
 
-            // Recent Activity
+            // Recently Ordered
             Text(
-              'Recent Activity',
+              'Recently Ordered',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -205,33 +210,37 @@ class DashboardTab extends StatelessWidget {
                 ),
                 child: ListView(
                   children: [
-                    _buildActivityItem(
-                      'New order received',
-                      'Order #1234 - ₱1,250',
-                      '2 hours ago',
+                    _buildProductItem(
+                      context,
+                      'Chicken Wings 1kg',
+                      '₱320 (Retail)',
+                      'Last ordered: 2 days ago',
                       Icons.shopping_cart,
                       AppColors.success,
                     ),
-                    _buildActivityItem(
-                      'Low stock alert',
-                      'Rice 25kg - Only 5 left',
-                      '4 hours ago',
-                      Icons.warning,
+                    _buildProductItem(
+                      context,
+                      'Bangus Whole 500g',
+                      '₱180 (Retail)',
+                      'Last ordered: 1 week ago',
+                      Icons.set_meal,
+                      AppColors.primaryBlue,
+                    ),
+                    _buildProductItem(
+                      context,
+                      'Pork Belly 1kg',
+                      '₱450 (Retail)',
+                      'Last ordered: 3 days ago',
+                      Icons.lunch_dining,
                       AppColors.warning,
                     ),
-                    _buildActivityItem(
-                      'Order completed',
-                      'Order #1231 - ₱890',
-                      '6 hours ago',
-                      Icons.check_circle,
-                      AppColors.success,
-                    ),
-                    _buildActivityItem(
-                      'New product added',
-                      'Cooking Oil 1L',
-                      '1 day ago',
-                      Icons.add_circle,
-                      AppColors.primaryBlue,
+                    _buildProductItem(
+                      context,
+                      'Beef Steak 500g',
+                      '₱380 (Retail)',
+                      'Last ordered: 5 days ago',
+                      Icons.restaurant,
+                      AppColors.error,
                     ),
                   ],
                 ),
@@ -243,10 +252,9 @@ class DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard(
+  Widget _buildCategoryCard(
     BuildContext context,
     String title,
-    String value,
     IconData icon,
     Color color,
   ) {
@@ -264,35 +272,22 @@ class DashboardTab extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const Spacer(),
-              Icon(Icons.trending_up, color: AppColors.success, size: 16),
-            ],
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 32),
           ),
           const SizedBox(height: 12),
           Text(
-            value,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
             title,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
                 ),
           ),
         ],
@@ -300,10 +295,11 @@ class DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildActivityItem(
+  Widget _buildProductItem(
+    BuildContext context,
     String title,
-    String subtitle,
-    String time,
+    String price,
+    String lastOrdered,
     IconData icon,
     Color color,
   ) {
@@ -332,21 +328,45 @@ class DashboardTab extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  subtitle,
+                  price,
                   style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryRed,
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            time,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppColors.textTertiary,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                lastOrdered,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Add to cart feature coming soon')),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryRed,
+                  foregroundColor: AppColors.white,
+                  minimumSize: const Size(60, 28),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text(
+                  'Reorder',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -354,164 +374,4 @@ class DashboardTab extends StatelessWidget {
   }
 }
 
-// Products Tab
-class ProductsTab extends StatelessWidget {
-  const ProductsTab({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Products',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.inventory,
-                      size: 64,
-                      color: AppColors.textTertiary,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Products Screen',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                    Text(
-                      'Product management coming soon',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Orders Tab
-class OrdersTab extends StatelessWidget {
-  const OrdersTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Orders',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.receipt_long,
-                      size: 64,
-                      color: AppColors.textTertiary,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Orders Screen',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                    Text(
-                      'Order management coming soon',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Profile Tab
-class ProfileTab extends StatelessWidget {
-  const ProfileTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Profile',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.person,
-                      size: 64,
-                      color: AppColors.textTertiary,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Profile Screen',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                    Text(
-                      'User profile coming soon',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
