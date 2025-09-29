@@ -366,7 +366,22 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
+                  // Add status description
+                  SizedBox(
+                    width: 120, // Constrain width to prevent overflow
+                    child: Text(
+                      statusInfo['description'],
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textTertiary,
+                      ),
+                      textAlign: TextAlign.right,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   Text(
                     '₱${order.totalAmount.toStringAsFixed(2)}',
                     style: const TextStyle(
@@ -728,6 +743,34 @@ class _OrderDetailsSheet extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
+                        // Add status description and progression
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(order.status).withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _getStatusColor(order.status).withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                statusInfo['description'],
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _OrderDetailsSheet._buildStatusProgressionStatic(order.status),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         Text('Order Date: ${app_date_utils.DateUtils.formatDetailedDateTime(order.orderDate)}'),
                         if (order.deliveryDate != null)
                           Text('Delivery Date: ${app_date_utils.DateUtils.formatDetailedDateTime(order.deliveryDate!)}'),
@@ -1010,6 +1053,16 @@ class _OrderDetailsSheet extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 4),
+                // Add status description
+                Text(
+                  statusInfo['description'],
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 if (history.oldStatus != null && oldStatusInfo != null) ...[
                   const SizedBox(height: 2),
                   Text(
@@ -1063,6 +1116,125 @@ class _OrderDetailsSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static Widget _buildStatusProgressionStatic(OrderStatus currentStatus) {
+    final statuses = [
+      OrderStatus.pending,
+      OrderStatus.confirmed,
+      OrderStatus.in_transit,
+      OrderStatus.delivered,
+    ];
+
+    // Don't show progression for cancelled/returned orders
+    if (currentStatus == OrderStatus.cancelled || currentStatus == OrderStatus.returned) {
+      return Text(
+        currentStatus == OrderStatus.cancelled ? 'Order journey ended (cancelled)' : 'Order journey ended (returned)',
+        style: TextStyle(
+          fontSize: 12,
+          color: AppColors.textSecondary,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+
+    final currentIndex = statuses.indexOf(currentStatus);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Order Journey',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: statuses.asMap().entries.map((entry) {
+            final index = entry.key;
+            final status = entry.value;
+            final isCompleted = index <= currentIndex;
+            final isCurrent = index == currentIndex;
+
+            return Expanded(
+              child: Row(
+                children: [
+                  // Status dot
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: isCompleted
+                        ? _getStatusColorStatic(status)
+                        : AppColors.gray300,
+                      shape: BoxShape.circle,
+                      border: isCurrent
+                        ? Border.all(color: _getStatusColorStatic(status), width: 2)
+                        : null,
+                    ),
+                  ),
+                  // Progress line (except for last item)
+                  if (index < statuses.length - 1)
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        color: isCompleted
+                          ? _getStatusColorStatic(status).withValues(alpha: 0.3)
+                          : AppColors.gray300,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 4),
+        // Status labels
+        Row(
+          children: statuses.asMap().entries.map((entry) {
+            final index = entry.key;
+            final status = entry.value;
+            final statusInfo = OrderService.getOrderStatusInfo(status);
+            final isCompleted = index <= currentIndex;
+
+            return Expanded(
+              child: Text(
+                statusInfo['title'],
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isCompleted
+                    ? _getStatusColorStatic(status)
+                    : AppColors.textTertiary,
+                  fontWeight: isCompleted ? FontWeight.w600 : FontWeight.normal,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  static Color _getStatusColorStatic(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return Colors.orange;
+      case OrderStatus.confirmed:
+        return AppColors.primaryBlue;
+      case OrderStatus.in_transit:
+        return Colors.purple;
+      case OrderStatus.delivered:
+        return AppColors.success;
+      case OrderStatus.cancelled:
+        return AppColors.error;
+      case OrderStatus.returned:
+        return Colors.grey;
+    }
   }
 
   Color _getStatusColor(OrderStatus status) {
