@@ -648,7 +648,7 @@ class Order {
         taxAmount: parseDouble(json['tax_amount'], 0.0),
         totalAmount: parseDouble(json['total_amount'], 0.0),
         notes: json['notes']?.toString(),
-        createdBy: json['created_by']?.toString(),
+        createdBy: json['created_by_user_id']?.toString(),
         assignedTo: json['assigned_to']?.toString(),
         createdAt: parseDateTime(json['created_at'], now),
         updatedAt: parseDateTime(json['updated_at'], now),

@@ -191,15 +191,23 @@ class AuthService {
       final defaultBranchId = await _getDefaultBranchId();
       print('🏢 Assigning to branch: $defaultBranchId');
 
-      await _client.from('customers').insert({
+      final customerData = {
         'user_id': userId,
         'email': email,
         'full_name': fullName,
         'phone': phone,
         'customer_type': 'regular',
         'is_active': true,
-        'preferred_branch_id': defaultBranchId,
-      });
+      };
+
+      // Only add branch ID if one was found
+      if (defaultBranchId != null) {
+        customerData['preferred_branch_id'] = defaultBranchId;
+      } else {
+        print('⚠️ No default branch found - customer will need to select a branch later');
+      }
+
+      await _client.from('customers').insert(customerData);
 
       print('✅ CUSTOMER PROFILE CREATED SUCCESSFULLY in database');
     } catch (e) {

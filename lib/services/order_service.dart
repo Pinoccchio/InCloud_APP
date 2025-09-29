@@ -17,23 +17,43 @@ class OrderService {
       print('🛒 CREATING ORDER FROM CART...');
       print('   Items: ${cartItems.length}');
 
+      // Validate input
+      if (cartItems.isEmpty) {
+        throw Exception('Cannot create order with empty cart');
+      }
+
       // Validate user is logged in
       final user = AuthService.currentUser;
       if (user == null) {
         throw Exception('User must be logged in to place orders');
       }
+      print('   User ID: ${user.id}');
 
       // Get customer profile
       final customerProfile = await AuthService.getCustomerProfile();
       if (customerProfile == null) {
-        throw Exception('Customer profile not found');
+        throw Exception('Customer profile not found. Please complete your profile setup.');
       }
 
-      final customerId = customerProfile['id'] as String;
+      final customerId = customerProfile['id'] as String?;
       final branchId = customerProfile['preferred_branch_id'] as String?;
 
-      if (branchId == null) {
-        throw Exception('No preferred branch set for customer');
+      if (customerId == null || customerId.isEmpty) {
+        throw Exception('Customer ID not found in profile');
+      }
+
+      if (branchId == null || branchId.isEmpty) {
+        throw Exception('No preferred branch set for customer. Please update your profile.');
+      }
+
+      // Validate cart items have valid pricing
+      for (final item in cartItems) {
+        if (item.unitPrice <= 0 || item.totalPrice <= 0) {
+          throw Exception('Invalid pricing found for item: ${item.product.name}');
+        }
+        if (item.quantity <= 0) {
+          throw Exception('Invalid quantity found for item: ${item.product.name}');
+        }
       }
 
       // Calculate totals
@@ -41,12 +61,18 @@ class OrderService {
       final taxAmount = subtotal * 0.12; // 12% VAT
       final totalAmount = subtotal + taxAmount;
 
+      if (subtotal <= 0) {
+        throw Exception('Order total cannot be zero or negative');
+      }
+
       // Generate order number
       final orderNumber = 'ORD-${app_date_utils.DateUtils.nowInUtc().millisecondsSinceEpoch}';
 
       print('   Order Number: $orderNumber');
       print('   Customer: $customerId');
       print('   Branch: $branchId');
+      print('   Subtotal: ₱${subtotal.toStringAsFixed(2)}');
+      print('   Tax: ₱${taxAmount.toStringAsFixed(2)}');
       print('   Total: ₱${totalAmount.toStringAsFixed(2)}');
 
       // Create order
@@ -72,6 +98,10 @@ class OrderService {
           .select()
           .single();
 
+      if (orderResponse == null || orderResponse['id'] == null) {
+        throw Exception('Failed to create order - no response from server');
+      }
+
       final orderId = orderResponse['id'] as String;
       print('✅ ORDER CREATED: $orderId');
 
@@ -86,17 +116,53 @@ class OrderService {
         'fulfillment_status': 'pending',
       }).toList();
 
-      await _client.from('order_items').insert(orderItems);
+      if (orderItems.isEmpty) {
+        throw Exception('No order items to insert');
+      }
+
+      final itemsResponse = await _client.from('order_items').insert(orderItems);
+
+      // Verify items were created (Supabase insert doesn't throw on failure)
+      if (itemsResponse == null) {
+        print('⚠️ Warning: Order items insert returned null response');
+      }
+
       print('✅ ORDER ITEMS CREATED: ${orderItems.length} items');
 
       // Note: Order status history is automatically created by database trigger
       print('✅ ORDER STATUS HISTORY: Handled by database trigger automatically');
 
       return orderId;
+    } on PostgrestException catch (e) {
+      print('❌ DATABASE ERROR CREATING ORDER:');
+      print('   Code: ${e.code}');
+      print('   Message: ${e.message}');
+      print('   Details: ${e.details}');
+
+      // Provide user-friendly error messages
+      if (e.code == '23503') {
+        throw Exception('Invalid reference data. Please refresh and try again.');
+      } else if (e.code == '23505') {
+        throw Exception('Duplicate order detected. Please try again.');
+      } else {
+        throw Exception('Database error: ${e.message}');
+      }
+    } on AuthException catch (e) {
+      print('❌ AUTH ERROR CREATING ORDER: ${e.message}');
+      throw Exception('Authentication error. Please sign in again.');
     } catch (e) {
-      print('❌ ERROR CREATING ORDER: $e');
+      print('❌ UNEXPECTED ERROR CREATING ORDER: $e');
       debugPrint('Order creation error: $e');
-      rethrow;
+
+      // Provide more specific error messages based on the error content
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('network') || errorStr.contains('connection')) {
+        throw Exception('Network error. Please check your connection and try again.');
+      } else if (errorStr.contains('timeout')) {
+        throw Exception('Request timed out. Please try again.');
+      } else {
+        throw Exception('Failed to create order: ${e.toString()}');
+      }
     }
   }
 

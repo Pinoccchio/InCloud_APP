@@ -227,6 +227,28 @@ class CartScreen extends ConsumerWidget {
                         onPressed: isLoading
                             ? null
                             : () async {
+                                // Additional validation before checkout
+                                if (cartItems.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Your cart is empty'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                // Validate minimum order amount if needed
+                                if (total < 100) { // Minimum order of ₱100
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Minimum order amount is ₱100.00'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                  return;
+                                }
+
                                 final isValid = await ref.read(cartProvider.notifier).validateCart();
                                 if (isValid) {
                                   _showCheckoutDialog(context, ref);
