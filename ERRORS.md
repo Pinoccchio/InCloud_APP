@@ -38,3 +38,5 @@ PostgrestException(message: insert or update on table "order_status_history" vio
 **Root Cause**: Over-engineered database design with separate foreign keys for admins vs customers.
 **Solution**: Single `auth.users.id` foreign key for all user actions.
 **Result**: Clean, maintainable, and error-free order management system! 🚀 
+
+W U NEDE TO DO IS TO SEE THE  ORDER DETAILS SO DUPLICATE ORDER HISTORY AND SOME TESTING IN THE WEB AFTER THAN UK NOW ALREADY LIKE NOTIF AND SO ONw

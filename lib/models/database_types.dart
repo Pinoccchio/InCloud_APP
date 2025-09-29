@@ -488,10 +488,29 @@ class CartItem {
     required PricingTier tier,
     required int quantity,
   }) {
-    final priceTier = product.priceTiers.firstWhere(
-      (p) => p.tierType == tier,
-      orElse: () => product.priceTiers.first,
-    );
+    if (product.priceTiers.isEmpty) {
+      throw Exception('Product ${product.name} has no price tiers available');
+    }
+
+    // Try to find the exact tier requested
+    PriceTier? priceTier;
+    try {
+      priceTier = product.priceTiers.firstWhere(
+        (p) => p.tierType == tier,
+      );
+    } catch (e) {
+      // If exact tier not found, try to find a suitable fallback
+      if (product.priceTiers.isNotEmpty) {
+        // Prefer retail as fallback, then any available tier
+        priceTier = product.priceTiers.firstWhere(
+          (p) => p.tierType == PricingTier.retail,
+          orElse: () => product.priceTiers.first,
+        );
+        print('⚠️ Pricing tier $tier not found for ${product.name}, using ${priceTier.tierType} instead');
+      } else {
+        throw Exception('No valid pricing tier found for product ${product.name}');
+      }
+    }
 
     final unitPrice = priceTier.price;
     final totalPrice = unitPrice * quantity;
@@ -499,7 +518,7 @@ class CartItem {
     return CartItem(
       id: '${product.id}_${tier.name}_${app_date_utils.DateUtils.nowInUtc().millisecondsSinceEpoch}',
       product: product,
-      selectedTier: tier,
+      selectedTier: priceTier.tierType, // Use the actual tier found
       quantity: quantity,
       unitPrice: unitPrice,
       totalPrice: totalPrice,

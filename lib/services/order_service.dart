@@ -89,22 +89,8 @@ class OrderService {
       await _client.from('order_items').insert(orderItems);
       print('✅ ORDER ITEMS CREATED: ${orderItems.length} items');
 
-      // Create initial status history record
-      try {
-        await _client.from('order_status_history').insert({
-          'order_id': orderId,
-          'old_status': null, // No previous status for new orders
-          'new_status': 'pending',
-          'changed_by_user_id': user.id, // Customer who created the order
-          'notes': 'Order created',
-          'created_at': app_date_utils.DateUtils.nowInUtcString(),
-        });
-        print('✅ ORDER STATUS HISTORY CREATED: Initial pending status');
-      } catch (historyError) {
-        // Log warning but don't fail the entire order creation
-        print('⚠️ WARNING: Failed to create order status history: $historyError');
-        debugPrint('Order status history creation error: $historyError');
-      }
+      // Note: Order status history is automatically created by database trigger
+      print('✅ ORDER STATUS HISTORY: Handled by database trigger automatically');
 
       return orderId;
     } catch (e) {
@@ -186,6 +172,7 @@ class OrderService {
                 description,
                 images,
                 unit_of_measure,
+                status,
                 categories!products_category_id_fkey (
                   id,
                   name
@@ -193,6 +180,14 @@ class OrderService {
                 brands!products_brand_id_fkey (
                   id,
                   name
+                ),
+                price_tiers!price_tiers_product_id_fkey (
+                  id,
+                  tier_type,
+                  price,
+                  min_quantity,
+                  max_quantity,
+                  is_active
                 )
               )
             ),
@@ -250,7 +245,7 @@ class OrderService {
       }
       // Customer ID not needed for order cancellation - order validation is sufficient
 
-      // Update order status
+      // Update order status - database trigger will automatically create status history
       await _client
           .from('orders')
           .update({
@@ -267,18 +262,6 @@ class OrderService {
           .from('order_items')
           .update({'fulfillment_status': 'cancelled'})
           .eq('order_id', orderId);
-
-      // Create status history record for cancellation
-      await _client
-          .from('order_status_history')
-          .insert({
-            'order_id': orderId,
-            'old_status': order.status.name,
-            'new_status': 'cancelled',
-            'changed_by_user_id': user.id, // User ID for proper attribution
-            'notes': reason,
-            'created_at': app_date_utils.DateUtils.nowInUtcString(),
-          });
 
       print('✅ ORDER CANCELLED SUCCESSFULLY');
       return true;
@@ -300,23 +283,55 @@ class OrderService {
       }
 
       List<CartItem> cartItems = [];
+      List<String> skippedItems = [];
+      List<String> unavailableItems = [];
 
       for (final orderItem in order.items) {
-        if (orderItem.product != null) {
-          try {
-            final cartItem = CartItem.fromProduct(
-              product: orderItem.product!,
-              tier: orderItem.pricingTier,
-              quantity: orderItem.quantity,
-            );
-            cartItems.add(cartItem);
-          } catch (e) {
-            print('⚠️ Skipping item ${orderItem.productId}: $e');
-          }
+        if (orderItem.product == null) {
+          skippedItems.add('Product data missing');
+          print('⚠️ Skipping item ${orderItem.productId}: Product data is null');
+          continue;
+        }
+
+        final product = orderItem.product!;
+
+        // Check if product is still active
+        if (product.status != ProductStatus.active) {
+          unavailableItems.add(product.name);
+          print('⚠️ Skipping ${product.name}: Product is no longer active (${product.status})');
+          continue;
+        }
+
+        // Check if product has price tiers
+        if (product.priceTiers.isEmpty) {
+          skippedItems.add('${product.name} (no pricing available)');
+          print('⚠️ Skipping ${product.name}: No price tiers available');
+          continue;
+        }
+
+        try {
+          final cartItem = CartItem.fromProduct(
+            product: product,
+            tier: orderItem.pricingTier,
+            quantity: orderItem.quantity,
+          );
+          cartItems.add(cartItem);
+          print('✅ Added ${product.name} to reorder cart');
+        } catch (e) {
+          skippedItems.add('${product.name} (${e.toString()})');
+          print('⚠️ Skipping ${product.name}: $e');
         }
       }
 
-      print('✅ REORDER ITEMS PREPARED: ${cartItems.length} items');
+      // Log summary
+      print('✅ REORDER ITEMS PREPARED: ${cartItems.length} items successfully added');
+      if (skippedItems.isNotEmpty) {
+        print('⚠️ SKIPPED ITEMS: ${skippedItems.length} - ${skippedItems.join(', ')}');
+      }
+      if (unavailableItems.isNotEmpty) {
+        print('🚫 UNAVAILABLE ITEMS: ${unavailableItems.length} - ${unavailableItems.join(', ')}');
+      }
+
       return cartItems;
     } catch (e) {
       print('❌ ERROR PREPARING REORDER: $e');

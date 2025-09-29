@@ -620,28 +620,75 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   }
 
   void _handleReorder(Order order) async {
-    final reorderItems = await ref.read(orderProvider.notifier).getReorderItems(order.id);
+    if (!mounted) return;
 
-    if (reorderItems.isNotEmpty && mounted) {
-      // Add items to cart
-      final cartNotifier = ref.read(cartProvider.notifier);
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Preparing reorder...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
 
-      for (final item in reorderItems) {
-        await cartNotifier.addToCart(
-          product: item.product,
-          tier: item.selectedTier,
-          quantity: item.quantity,
-        );
-      }
+    try {
+      final reorderItems = await ref.read(orderProvider.notifier).getReorderItems(order.id);
 
-      // Navigate to cart
-      if (mounted) {
+      if (!mounted) return;
+
+      if (reorderItems.isNotEmpty) {
+        // Add items to cart
+        final cartNotifier = ref.read(cartProvider.notifier);
+
+        for (final item in reorderItems) {
+          await cartNotifier.addToCart(
+            product: item.product,
+            tier: item.selectedTier,
+            quantity: item.quantity,
+          );
+        }
+
+        // Navigate to cart
         widget.onNavigateToTab?.call(2);
+
+        // Provide feedback based on the number of original items vs added items
+        final originalItemCount = order.items.length;
+        String message;
+        Color backgroundColor;
+
+        if (reorderItems.length == originalItemCount) {
+          message = '${reorderItems.length} items added to cart';
+          backgroundColor = AppColors.success;
+        } else {
+          message = '${reorderItems.length} of $originalItemCount items added to cart';
+          backgroundColor = AppColors.warning ?? Colors.orange;
+        }
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${reorderItems.length} items added to cart'),
-            backgroundColor: AppColors.success,
+            content: Text(message),
+            backgroundColor: backgroundColor,
+            action: SnackBarAction(
+              label: 'View Cart',
+              textColor: Colors.white,
+              onPressed: () => widget.onNavigateToTab?.call(2),
+            ),
+          ),
+        );
+      } else {
+        // No items could be added
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No items available for reorder'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to prepare reorder: ${e.toString()}'),
+            backgroundColor: AppColors.error,
           ),
         );
       }
