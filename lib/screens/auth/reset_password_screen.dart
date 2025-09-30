@@ -1,98 +1,56 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/success_dialog.dart';
 import '../../widgets/error_dialog.dart';
-import '../home/home_screen.dart';
-import 'signup_screen.dart';
-import 'forgot_password_screen.dart';
+import 'login_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class ResetPasswordScreen extends StatefulWidget {
+  const ResetPasswordScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _rememberMe = false;
+  bool _obscureConfirmPassword = true;
   bool _isLoading = false;
-
-  // SharedPreferences keys
-  static const String _keyRememberMe = 'remember_me';
-  static const String _keyEmail = 'saved_email';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSavedCredentials();
-  }
 
   @override
   void dispose() {
-    _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  // Load saved email if "Remember me" was checked
-  Future<void> _loadSavedCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    final rememberMe = prefs.getBool(_keyRememberMe) ?? false;
-    final savedEmail = prefs.getString(_keyEmail) ?? '';
-
-    if (rememberMe && savedEmail.isNotEmpty) {
-      setState(() {
-        _rememberMe = true;
-        _emailController.text = savedEmail;
-      });
-    }
-  }
-
-  // Save or clear credentials based on "Remember me" checkbox
-  Future<void> _saveCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    if (_rememberMe) {
-      await prefs.setBool(_keyRememberMe, true);
-      await prefs.setString(_keyEmail, _emailController.text.trim());
-    } else {
-      await prefs.setBool(_keyRememberMe, false);
-      await prefs.remove(_keyEmail);
-    }
-  }
-
-  void _handleLogin() async {
+  void _handleResetPassword() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
 
-      final result = await AuthService.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+      final result = await AuthService.updatePassword(
+        newPassword: _passwordController.text,
       );
 
       if (mounted) {
         setState(() => _isLoading = false);
 
         if (result.isSuccess) {
-          // Save credentials if login is successful and "Remember me" is checked
-          await _saveCredentials();
-
-          // Show success message and navigate to home
+          // Show success message and navigate to login
           await SuccessDialog.show(
             context: context,
-            title: 'Success',
+            title: 'Password Updated',
             message: result.message,
-            buttonText: 'Continue',
+            buttonText: 'Sign In',
             onButtonPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              // Navigate to login screen and remove all previous routes
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
               );
             },
           );
@@ -100,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // Show error message
           ErrorDialog.show(
             context: context,
-            title: 'Login Failed',
+            title: 'Error',
             message: result.message,
             buttonText: 'Try Again',
           );
@@ -109,28 +67,22 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _goToSignup() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const SignupScreen()),
-    );
-  }
-
-  String? _validateEmail(String? value) {
+  String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Please enter your email';
+      return 'Please enter a password';
     }
-    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-      return 'Please enter a valid email';
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
     }
     return null;
   }
 
-  String? _validatePassword(String? value) {
+  String? _validateConfirmPassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Please enter your password';
+      return 'Please confirm your password';
     }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
+    if (value != _passwordController.text) {
+      return 'Passwords do not match';
     }
     return null;
   }
@@ -139,6 +91,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surfacePrimary,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -147,15 +104,15 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
 
                 // Logo
                 Center(
                   child: Container(
-                    width: 120,
-                    height: 120,
+                    width: 100,
+                    height: 100,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(60),
+                      borderRadius: BorderRadius.circular(50),
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.primaryRed.withValues(alpha: 0.2),
@@ -165,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(60),
+                      borderRadius: BorderRadius.circular(50),
                       child: Image.asset(
                         AppConstants.logoAssetPath,
                         fit: BoxFit.cover,
@@ -176,9 +133,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                // Title and subtitle
+                // Title
                 Text(
-                  'Welcome Back',
+                  'Reset Password',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.displaySmall?.copyWith(
                         color: AppColors.textPrimary,
@@ -186,10 +143,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
+                // Subtitle
                 Text(
-                  'Sign in to your account to continue',
+                  'Please enter your new password below.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppColors.textSecondary,
@@ -198,45 +156,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 40),
 
-                // Email field
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  validator: _validateEmail,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'Enter your email address',
-                    prefixIcon: const Icon(
-                      Icons.email_outlined,
-                      color: AppColors.primaryBlue,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.gray300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Password field
+                // New password field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                   validator: _validatePassword,
-                  onFieldSubmitted: (_) => _handleLogin(),
                   decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Enter your password',
+                    labelText: 'New Password',
+                    hintText: 'Enter your new password',
                     prefixIcon: const Icon(
                       Icons.lock_outlined,
                       color: AppColors.primaryBlue,
@@ -268,48 +196,81 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 16),
 
-                // Remember me and forgot password
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _rememberMe,
-                      onChanged: (value) => setState(() => _rememberMe = value ?? false),
-                      activeColor: AppColors.primaryBlue,
+                // Confirm password field
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  textInputAction: TextInputAction.done,
+                  validator: _validateConfirmPassword,
+                  onFieldSubmitted: (_) => _handleResetPassword(),
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    hintText: 'Re-enter your new password',
+                    prefixIcon: const Icon(
+                      Icons.lock_outlined,
+                      color: AppColors.primaryBlue,
                     ),
-                    Text(
-                      'Remember me',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                    const Spacer(),
-                    TextButton(
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: AppColors.textSecondary,
+                      ),
                       onPressed: () {
-                        // Navigate to forgot password screen
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const ForgotPasswordScreen(),
-                          ),
-                        );
+                        setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
                       },
-                      child: Text(
-                        'Forgot Password?',
-                        style: TextStyle(
-                          color: AppColors.primaryBlue,
-                          fontWeight: FontWeight.w500,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Password requirements hint
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: AppColors.primaryBlue,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Password must be at least 6 characters long',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.primaryBlue,
+                              ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
 
                 const SizedBox(height: 32),
 
-                // Login button
+                // Reset password button
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
+                    onPressed: _isLoading ? null : _handleResetPassword,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryRed,
                       foregroundColor: AppColors.white,
@@ -328,38 +289,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           )
                         : const Text(
-                            'Sign In',
+                            'Update Password',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                   ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Signup link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Don't have an account? ",
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                    TextButton(
-                      onPressed: _goToSignup,
-                      child: Text(
-                        'Sign Up',
-                        style: TextStyle(
-                          color: AppColors.primaryBlue,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
 
                 const SizedBox(height: 40),

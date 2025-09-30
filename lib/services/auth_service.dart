@@ -335,6 +335,82 @@ class AuthService {
     }
   }
 
+  // Send password reset email
+  static Future<AuthResult> sendPasswordResetEmail({
+    required String email,
+  }) async {
+    print('🔐 PASSWORD RESET REQUESTED for email: $email');
+
+    try {
+      print('📧 Sending password reset email...');
+      await _client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'io.supabase.incloud://reset-password',
+      );
+
+      print('✅ PASSWORD RESET EMAIL SENT SUCCESSFULLY');
+      return AuthResult.success(
+        user: null,
+        message: 'Password reset link sent! Please check your email.',
+      );
+    } on AuthException catch (e) {
+      print('❌ PASSWORD RESET AUTH EXCEPTION:');
+      print('   Raw message: ${e.message}');
+      print('   Status code: ${e.statusCode}');
+      final friendlyMessage = _getAuthErrorMessage(e);
+      print('   Friendly message: $friendlyMessage');
+      return AuthResult.error(friendlyMessage);
+    } catch (e) {
+      print('❌ PASSWORD RESET UNEXPECTED ERROR: $e');
+      debugPrint('Password reset error: $e');
+      return AuthResult.error('An unexpected error occurred. Please try again.');
+    }
+  }
+
+  // Update password (for password reset flow)
+  static Future<AuthResult> updatePassword({
+    required String newPassword,
+  }) async {
+    print('🔐 PASSWORD UPDATE STARTED');
+
+    try {
+      if (currentUser == null) {
+        print('❌ No current user found');
+        return AuthResult.error('You must be logged in to update your password.');
+      }
+
+      print('🔄 Updating password for user: ${currentUser!.email}');
+      final response = await _client.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+
+      if (response.user != null) {
+        print('✅ PASSWORD UPDATED SUCCESSFULLY!');
+        print('   User ID: ${response.user!.id}');
+        print('   Email: ${response.user!.email}');
+
+        return AuthResult.success(
+          user: response.user!,
+          message: 'Password updated successfully!',
+        );
+      } else {
+        print('❌ PASSWORD UPDATE FAILED: No user returned from Supabase');
+        return AuthResult.error('Failed to update password. Please try again.');
+      }
+    } on AuthException catch (e) {
+      print('❌ PASSWORD UPDATE AUTH EXCEPTION:');
+      print('   Raw message: ${e.message}');
+      print('   Status code: ${e.statusCode}');
+      final friendlyMessage = _getAuthErrorMessage(e);
+      print('   Friendly message: $friendlyMessage');
+      return AuthResult.error(friendlyMessage);
+    } catch (e) {
+      print('❌ PASSWORD UPDATE UNEXPECTED ERROR: $e');
+      debugPrint('Password update error: $e');
+      return AuthResult.error('An unexpected error occurred. Please try again.');
+    }
+  }
+
   // Auth state stream
   static Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 }
@@ -352,7 +428,7 @@ class AuthResult {
   });
 
   factory AuthResult.success({
-    required User user,
+    User? user,
     required String message,
   }) {
     return AuthResult._(
