@@ -1,42 +1,67 @@
-# Order Management Issues - RESOLVED ✅
-
-## 🎯 **OPTIMIZED SOLUTION**: Simple Single Foreign Key Architecture
-
-### **Final Clean Database Structure:**
-```sql
--- SIMPLE & CLEAN:
-orders.created_by_user_id → auth.users.id
-order_status_history.changed_by_user_id → auth.users.id
-```
-
-### **Why This is Better:**
-1. **Single foreign key** instead of dual foreign keys + complex constraints
-2. **Unified user system** - both admins and customers are in auth.users
-3. **Simple queries** - no complex check constraints needed
-4. **Easy to maintain** - follows standard database design principles
-5. **Determine user type** with simple LEFT JOINs when needed
-
-### **Issues Fixed:**
-- ✅ **Foreign Key Violations**: No more constraint errors during customer cancellations
-- ✅ **NULL created_by**: Orders now properly track who created them using `created_by_user_id`
-- ✅ **Over-engineered Schema**: Removed dual foreign key approach that was unnecessarily complex
-- ✅ **Cancellation Notes**: Both web admin and mobile app display cancellation reasons
-- ✅ **Attribution**: Proper tracking of who made changes (admin or customer)
-
-### **Implementation:**
-- ✅ Database migration applied to remove old complex structure
-- ✅ Mobile app updated to use `created_by_user_id` and `changed_by_user_id`
-- ✅ Web admin updated to use simplified structure
-- ✅ Status history tracking simplified but functional
-- ✅ Cancellation functionality working without errors
-
-### **Previous Error (COMPLETELY RESOLVED):**
-```
-PostgrestException(message: insert or update on table "order_status_history" violates foreign key constraint "order_status_history_changed_by_fkey", code: 23503, details: Key is not present in table "admins".)
-```
-
-**Root Cause**: Over-engineered database design with separate foreign keys for admins vs customers.
-**Solution**: Single `auth.users.id` foreign key for all user actions.
-**Result**: Clean, maintainable, and error-free order management system! 🚀 
-
-W U NEDE TO DO IS TO SEE THE  ORDER DETAILS SO DUPLICATE ORDER HISTORY AND SOME TESTING IN THE WEB AFTER THAN UK NOW ALREADY LIKE NOTIF AND SO ONw
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+E/BLASTBufferQueue(22035): [SurfaceView[com.jasfoodtrading.incloud/com.jasfoodtrading.incloud.MainActivity]#1](f:1,a:6) acquireNextBufferLocked: Can't acquire next buffer. Already acquired max frames 6 max:4 + 2
+D/TextSelection(22035): onUseCache cache=false
+I/flutter (22035): 🏢 FETCHING DEFAULT BRANCH...
+I/flutter (22035): ✅ DEFAULT BRANCH: J.A's Food Trading - Main Branch (ab2ecdc9-58ca-4445-8e56-2048e83c4819)
+I/flutter (22035): 🔍 FETCHING PRODUCTS (CENTRALIZED)...
+I/flutter (22035): 🏷️ FETCHING CATEGORIES...
+I/flutter (22035): 🏪 FETCHING BRANDS...
+I/flutter (22035): ✅ RAW PRODUCT DATA FETCHED: 35 products
+I/flutter (22035): DEBUG: Parsing Product from JSON: [id, name, description, barcode, sku, images, unit_of_measure, is_frozen, status, created_by, created_at, updated_at, category_id, brand_id, updated_by, categories, brands, price_tiers, inventory]
+I/flutter (22035): ERROR: Failed to parse Product from JSON: type '_Map<String, dynamic>' is not a subtype of type 'String'
+I/flutter (22035): JSON data: {id: 50b91cf7-6a18-418c-8f17-f958b9d75b1c, name: test, description: aewaeawea, barcode: 312312321, sku: 12312312, images: [{url: https://jxdzdkvnyjgwndxhvtzo.supabase.co/storage/v1/object/public/product-images/products/temp-1759211897592-h4ubozuosz/gallery/1759211908714_0kdb1ao0rnb.png, path: products/temp-1759211897592-h4ubozuosz/gallery/1759211908714_0kdb1ao0rnb.png}], unit_of_measure: grams, is_frozen: true, status: active, created_by: 3ac7ada4-d860-4bea-a92e-f59c60026e11, created_at: 2025-09-30T05:58:36.382551+00:00, updated_at: 2025-09-30T05:58:36.624008+00:00, category_id: 11111111-1111-1111-1111-111111111111, brand_id: f65e873c-4211-420b-99b1-03309154d720, updated_by: null, categories: {id: 11111111-1111-1111-1111-111111111111, name: Frozen Seafood, description: Premium frozen seafood products}, brands: {id: f65e873c-4211-420b-99b1-03309154d720, name: Marine Best, logo_url: null, description: Finest seafood selections}, price_tiers: [{id: e5a4e4dc-350c-4644-9e5d-5c9874bb9fc7, price: 100.0, 
+I/flutter (22035): ❌ Error parsing product: type '_Map<String, dynamic>' is not a subtype of type 'String'
+I/flutter (22035):    Raw data: {id: 50b91cf7-6a18-418c-8f17-f958b9d75b1c, name: test, description: aewaeawea, barcode: 312312321, sku: 12312312, images: [{url: https://jxdzdkvnyjgwndxhvtzo.supabase.co/storage/v1/object/public/product-images/products/temp-1759211897592-h4ubozuosz/gallery/1759211908714_0kdb1ao0rnb.png, path: products/temp-1759211897592-h4ubozuosz/gallery/1759211908714_0kdb1ao0rnb.png}], unit_of_measure: grams, is_frozen: true, status: active, created_by: 3ac7ada4-d860-4bea-a92e-f59c60026e11, created_at: 2025-09-30T05:58:36.382551+00:00, updated_at: 2025-09-30T05:58:36.624008+00:00, category_id: 11111111-1111-1111-1111-111111111111, brand_id: f65e873c-4211-420b-99b1-03309154d720, updated_by: null, categories: {id: 11111111-1111-1111-1111-111111111111, name: Frozen Seafood, description: Premium frozen seafood products}, brands: {id: f65e873c-4211-420b-99b1-03309154d720, name: Marine Best, logo_url: null, description: Finest seafood selections}, price_tiers: [{id: e5a4e4dc-350c-4644-9e5d-5c9874bb9fc7, price: 100.0
+I/flutter (22035): ❌ ERROR FETCHING PRODUCTS: type '_Map<String, dynamic>' is not a subtype of type 'String'
+I/flutter (22035): Product fetch error: type '_Map<String, dynamic>' is not a subtype of type 'String'
+I/flutter (22035): ✅ CATEGORIES FETCHED: 7 categories
+I/flutter (22035): ✅ BRANDS FETCHED: 7 brands
+I/flutter (22035): ❌ ERROR INITIALIZING PRODUCT PROVIDER: type '_Map<String, dynamic>' is not a subtype of type 'String'
+D/TextSelection(22035): onUseCache cache=false
+D/TextSelection(22035): onUseCache cache=false
+I/flutter (22035): 🔍 FETCHING PRODUCTS (CENTRALIZED)...
+I/flutter (22035): ✅ RAW PRODUCT DATA FETCHED: 35 products
+I/flutter (22035): DEBUG: Parsing Product from JSON: [id, name, description, barcode, sku, images, unit_of_measure, is_frozen, status, created_by, created_at, updated_at, category_id, brand_id, updated_by, categories, brands, price_tiers, inventory]
+I/flutter (22035): ERROR: Failed to parse Product from JSON: type '_Map<String, dynamic>' is not a subtype of type 'String'
+I/flutter (22035): JSON data: {id: 50b91cf7-6a18-418c-8f17-f958b9d75b1c, name: test, description: aewaeawea, barcode: 312312321, sku: 12312312, images: [{url: https://jxdzdkvnyjgwndxhvtzo.supabase.co/storage/v1/object/public/product-images/products/temp-1759211897592-h4ubozuosz/gallery/1759211908714_0kdb1ao0rnb.png, path: products/temp-1759211897592-h4ubozuosz/gallery/1759211908714_0kdb1ao0rnb.png}], unit_of_measure: grams, is_frozen: true, status: active, created_by: 3ac7ada4-d860-4bea-a92e-f59c60026e11, created_at: 2025-09-30T05:58:36.382551+00:00, updated_at: 2025-09-30T05:58:36.624008+00:00, category_id: 11111111-1111-1111-1111-111111111111, brand_id: f65e873c-4211-420b-99b1-03309154d720, updated_by: null, categories: {id: 11111111-1111-1111-1111-111111111111, name: Frozen Seafood, description: Premium frozen seafood products}, brands: {id: f65e873c-4211-420b-99b1-03309154d720, name: Marine Best, logo_url: null, description: Finest seafood selections}, price_tiers: [{id: e5a4e4dc-350c-4644-9e5d-5c9874bb9fc7, price: 100.0, 
+I/flutter (22035): ❌ Error parsing product: type '_Map<String, dynamic>' is not a subtype of type 'String'
+I/flutter (22035):    Raw data: {id: 50b91cf7-6a18-418c-8f17-f958b9d75b1c, name: test, description: aewaeawea, barcode: 312312321, sku: 12312312, images: [{url: https://jxdzdkvnyjgwndxhvtzo.supabase.co/storage/v1/object/public/product-images/products/temp-1759211897592-h4ubozuosz/gallery/1759211908714_0kdb1ao0rnb.png, path: products/temp-1759211897592-h4ubozuosz/gallery/1759211908714_0kdb1ao0rnb.png}], unit_of_measure: grams, is_frozen: true, status: active, created_by: 3ac7ada4-d860-4bea-a92e-f59c60026e11, created_at: 2025-09-30T05:58:36.382551+00:00, updated_at: 2025-09-30T05:58:36.624008+00:00, category_id: 11111111-1111-1111-1111-111111111111, brand_id: f65e873c-4211-420b-99b1-03309154d720, updated_by: null, categories: {id: 11111111-1111-1111-1111-111111111111, name: Frozen Seafood, description: Premium frozen seafood products}, brands: {id: f65e873c-4211-420b-99b1-03309154d720, name: Marine Best, logo_url: null, description: Finest seafood selections}, price_tiers: [{id: e5a4e4dc-350c-4644-9e5d-5c9874bb9fc7, price: 100.0
+I/flutter (22035): ❌ ERROR FETCHING PRODUCTS: type '_Map<String, dynamic>' is not a subtype of type 'String'
+I/flutter (22035): Product fetch error: type '_Map<String, dynamic>' is not a subtype of type 'String'
+I/flutter (22035): ❌ ERROR REFRESHING ALL PRODUCTS: type '_Map<String, dynamic>' is not a subtype of type 'String'

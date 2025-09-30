@@ -73,7 +73,12 @@ class Product {
         barcode: json['barcode']?.toString(),
         sku: json['sku']?.toString(),
         images: json['images'] != null
-            ? List<String>.from(json['images'])
+            ? (json['images'] as List).map((img) {
+                // Handle both string format (legacy) and object format (new)
+                if (img is String) return img;
+                if (img is Map<String, dynamic>) return img['url']?.toString() ?? '';
+                return '';
+              }).where((url) => url.isNotEmpty).toList()
             : [],
         unitOfMeasure: json['unit_of_measure']?.toString() ?? 'pieces',
         isFrozen: json['is_frozen'] == true,
