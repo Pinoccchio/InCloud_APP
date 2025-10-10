@@ -39,7 +39,7 @@ class ProductService {
             ),
             price_tiers!price_tiers_product_id_fkey (
               id,
-              tier_type,
+              pricing_type,
               price,
               min_quantity,
               max_quantity,
@@ -62,7 +62,7 @@ class ProductService {
               )
             )
           ''')
-          .eq('status', 'active');
+          .eq('status', 'available');
 
       // Apply filters
       if (categoryId != null && categoryId.isNotEmpty) {
@@ -95,8 +95,7 @@ class ProductService {
         products = products.where((product) {
           return product.name.toLowerCase().contains(query) ||
               (product.description?.toLowerCase().contains(query) ?? false) ||
-              (product.sku?.toLowerCase().contains(query) ?? false) ||
-              (product.barcode?.toLowerCase().contains(query) ?? false) ||
+              (product.productId?.toLowerCase().contains(query) ?? false) ||
               (product.category?.name.toLowerCase().contains(query) ?? false) ||
               (product.brand?.name.toLowerCase().contains(query) ?? false);
         }).toList();
@@ -154,7 +153,7 @@ class ProductService {
             ),
             price_tiers!price_tiers_product_id_fkey (
               id,
-              tier_type,
+              pricing_type,
               price,
               min_quantity,
               max_quantity,
@@ -178,7 +177,7 @@ class ProductService {
             )
           ''')
           .eq('id', productId)
-          .eq('status', 'active')
+          .eq('status', 'available')
           .maybeSingle();
 
       if (response != null) {
@@ -269,31 +268,69 @@ class ProductService {
     }
   }
 
-  /// Get price for a product based on tier and quantity
+  /// Get the correct price tier for a specific quantity (quantity-aware)
+  /// This handles products with multiple tiers of the same type (e.g., retail 1-19 units vs retail 20+ units)
+  static PriceTier? getTierForQuantity({
+    required Product product,
+    required PricingTier tierType,
+    required int quantity,
+  }) {
+    try {
+      // Get all active tiers of the requested type
+      final tiersOfType = product.priceTiers
+          .where((t) => t.tierType == tierType && t.isActive)
+          .toList();
+
+      if (tiersOfType.isEmpty) {
+        print('⚠️ No active tiers found for ${tierType.name}');
+        return null;
+      }
+
+      // Sort by min_quantity descending to find the highest applicable tier first
+      // This ensures we get the best price for the quantity
+      tiersOfType.sort((a, b) => b.minQuantity.compareTo(a.minQuantity));
+
+      // Find the first tier where quantity meets requirements
+      for (final tier in tiersOfType) {
+        // Check if quantity meets minimum requirement
+        if (quantity >= tier.minQuantity) {
+          // Check max_quantity if set
+          if (tier.maxQuantity == null || quantity <= tier.maxQuantity!) {
+            print('✅ Found tier for $quantity units of ${tierType.name}: ₱${tier.price} (min: ${tier.minQuantity}, max: ${tier.maxQuantity ?? "unlimited"})');
+            return tier;
+          }
+        }
+      }
+
+      // If no tier matches, try to find any tier (for edge cases)
+      final anyTier = tiersOfType.firstOrNull;
+      if (anyTier != null) {
+        print('⚠️ No exact tier match for $quantity units, using default tier: ₱${anyTier.price}');
+      }
+      return anyTier;
+    } catch (e) {
+      print('❌ ERROR FINDING TIER FOR QUANTITY: $e');
+      return null;
+    }
+  }
+
+  /// Get price for a product based on tier and quantity (DEPRECATED - use getTierForQuantity)
+  /// Kept for backward compatibility
   static double? getPrice({
     required Product product,
     required PricingTier tier,
     required int quantity,
   }) {
     try {
-      // Find the appropriate price tier
-      final priceTier = product.priceTiers.firstWhere(
-        (p) => p.tierType == tier && p.isActive,
-        orElse: () => product.priceTiers.firstWhere(
-          (p) => p.isActive,
-          orElse: () => throw Exception('No active price tiers found'),
-        ),
+      // Use the new quantity-aware method
+      final priceTier = getTierForQuantity(
+        product: product,
+        tierType: tier,
+        quantity: quantity,
       );
 
-      // Check if quantity meets minimum requirement
-      if (quantity < priceTier.minQuantity) {
-        print('⚠️ Quantity $quantity below minimum ${priceTier.minQuantity} for ${tier.name}');
-        return null;
-      }
-
-      // Check if quantity exceeds maximum (if set)
-      if (priceTier.maxQuantity != null && quantity > priceTier.maxQuantity!) {
-        print('⚠️ Quantity $quantity exceeds maximum ${priceTier.maxQuantity} for ${tier.name}');
+      if (priceTier == null) {
+        print('⚠️ No valid price tier found for $quantity units of ${tier.name}');
         return null;
       }
 

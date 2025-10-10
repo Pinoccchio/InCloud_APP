@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
@@ -6,6 +7,8 @@ import '../../services/auth_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/success_dialog.dart';
 import '../../widgets/error_dialog.dart';
+import '../../widgets/terms_conditions_dialog.dart';
+import '../../widgets/privacy_policy_dialog.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -601,7 +604,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               style: TextStyle(
                                 color: AppColors.primaryBlue,
                                 fontWeight: FontWeight.w500,
+                                decoration: TextDecoration.underline,
                               ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () => TermsConditionsDialog.show(context),
                             ),
                             const TextSpan(text: ' and '),
                             TextSpan(
@@ -609,7 +615,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               style: TextStyle(
                                 color: AppColors.primaryBlue,
                                 fontWeight: FontWeight.w500,
+                                decoration: TextDecoration.underline,
                               ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () => PrivacyPolicyDialog.show(context),
                             ),
                           ],
                         ),

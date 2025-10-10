@@ -4,9 +4,9 @@
 import '../core/utils/date_utils.dart' as app_date_utils;
 
 // Enums
-enum ProductStatus { active, inactive, discontinued }
+enum ProductStatus { available, unavailable, discontinued }
 
-enum PricingTier { wholesale, retail, box }
+enum PricingTier { wholesale, retail, bulk }
 
 enum OrderStatus { pending, confirmed, in_transit, delivered, cancelled, returned }
 
@@ -21,11 +21,9 @@ class Product {
   final String id;
   final String name;
   final String? description;
-  final String? barcode;
-  final String? sku;
+  final String? productId;
   final List<String> images;
   final String unitOfMeasure;
-  final bool isFrozen;
   final ProductStatus status;
   final String? categoryId;
   final String? brandId;
@@ -40,16 +38,17 @@ class Product {
   final List<PriceTier> priceTiers;
   final List<Inventory> inventory;
 
+  // Computed property: Products are frozen if their category name contains "frozen"
+  bool get isFrozen => category?.name.toLowerCase().contains('frozen') ?? false;
+
   Product({
     required this.id,
     required this.name,
     this.description,
-    this.barcode,
-    this.sku,
+    this.productId,
     this.images = const [],
     this.unitOfMeasure = 'pieces',
-    this.isFrozen = true,
-    this.status = ProductStatus.active,
+    this.status = ProductStatus.available,
     this.categoryId,
     this.brandId,
     this.createdBy,
@@ -70,8 +69,7 @@ class Product {
         id: json['id']?.toString() ?? '',
         name: json['name']?.toString() ?? 'Unknown Product',
         description: json['description']?.toString(),
-        barcode: json['barcode']?.toString(),
-        sku: json['sku']?.toString(),
+        productId: json['product_id']?.toString(),
         images: json['images'] != null
             ? (json['images'] as List).map((img) {
                 // Handle both string format (legacy) and object format (new)
@@ -81,10 +79,9 @@ class Product {
               }).where((url) => url.isNotEmpty).toList()
             : [],
         unitOfMeasure: json['unit_of_measure']?.toString() ?? 'pieces',
-        isFrozen: json['is_frozen'] == true,
         status: ProductStatus.values.firstWhere(
           (e) => e.name == json['status']?.toString(),
-          orElse: () => ProductStatus.active,
+          orElse: () => ProductStatus.available,
         ),
         categoryId: json['category_id']?.toString(),
         brandId: json['brand_id']?.toString(),
@@ -125,11 +122,9 @@ class Product {
       'id': id,
       'name': name,
       'description': description,
-      'barcode': barcode,
-      'sku': sku,
+      'product_id': productId,
       'images': images,
       'unit_of_measure': unitOfMeasure,
-      'is_frozen': isFrozen,
       'status': status.name,
       'category_id': categoryId,
       'brand_id': brandId,
@@ -273,7 +268,7 @@ class PriceTier {
       id: json['id'] as String,
       productId: json['product_id'] as String? ?? '', // Default for nested objects
       tierType: PricingTier.values.firstWhere(
-        (e) => e.name == json['tier_type'],
+        (e) => e.name == json['pricing_type'],
         orElse: () => PricingTier.retail,
       ),
       price: (json['price'] as num).toDouble(),
@@ -295,7 +290,7 @@ class PriceTier {
     return {
       'id': id,
       'product_id': productId,
-      'tier_type': tierType.name,
+      'pricing_type': tierType.name,
       'price': price,
       'min_quantity': minQuantity,
       'max_quantity': maxQuantity,
@@ -567,13 +562,15 @@ class Order {
   final Map<String, dynamic>? deliveryAddress;
   final double subtotal;
   final double discountAmount;
-  final double taxAmount;
   final double totalAmount;
   final String? notes;
   final String? createdBy;
   final String? assignedTo;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? proofOfPaymentUrl;
+  final String? proofOfPaymentStatus;
+  final String? proofRejectionReason;
 
   // Related data
   final List<OrderItem> items;
@@ -591,13 +588,15 @@ class Order {
     this.deliveryAddress,
     this.subtotal = 0,
     this.discountAmount = 0,
-    this.taxAmount = 0,
     this.totalAmount = 0,
     this.notes,
     this.createdBy,
     this.assignedTo,
     required this.createdAt,
     required this.updatedAt,
+    this.proofOfPaymentUrl,
+    this.proofOfPaymentStatus,
+    this.proofRejectionReason,
     this.items = const [],
     this.statusHistory = const [],
   });
@@ -650,13 +649,15 @@ class Order {
             : null,
         subtotal: parseDouble(json['subtotal'], 0.0),
         discountAmount: parseDouble(json['discount_amount'], 0.0),
-        taxAmount: parseDouble(json['tax_amount'], 0.0),
         totalAmount: parseDouble(json['total_amount'], 0.0),
         notes: json['notes']?.toString(),
         createdBy: json['created_by_user_id']?.toString(),
         assignedTo: json['assigned_to']?.toString(),
         createdAt: parseDateTime(json['created_at'], now),
         updatedAt: parseDateTime(json['updated_at'], now),
+        proofOfPaymentUrl: json['proof_of_payment_url']?.toString(),
+        proofOfPaymentStatus: json['proof_of_payment_status']?.toString(),
+        proofRejectionReason: json['proof_rejection_reason']?.toString(),
         items: _parseOrderItems(json['order_items']),
         statusHistory: _parseOrderStatusHistory(json['order_status_history']),
       );
@@ -820,7 +821,7 @@ class OrderItem {
         orderId: json['order_id']?.toString() ?? '',
         productId: json['product_id']?.toString() ?? '',
         pricingTier: PricingTier.values.firstWhere(
-          (e) => e.name == json['pricing_tier']?.toString(),
+          (e) => e.name == json['pricing_type']?.toString(),
           orElse: () => PricingTier.retail,
         ),
         quantity: parseInt(json['quantity'], 1),

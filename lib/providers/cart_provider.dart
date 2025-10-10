@@ -36,9 +36,7 @@ class CartState {
 
   double get subtotal => items.fold(0.0, (sum, item) => sum + item.totalPrice);
 
-  double get taxAmount => subtotal * 0.12; // 12% VAT in Philippines
-
-  double get total => subtotal + taxAmount;
+  double get total => subtotal; // No tax/VAT applied
 
   bool get isEmpty => items.isEmpty;
 
@@ -96,29 +94,23 @@ class CartNotifier extends Notifier<CartState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // Validate price tier exists
-      final priceTier = product.priceTiers.firstWhere(
-        (p) => p.tierType == tier && p.isActive,
-        orElse: () => throw Exception('Price tier not available'),
+      // Get the appropriate price tier for the quantity (quantity-aware)
+      final priceTier = ProductService.getTierForQuantity(
+        product: product,
+        tierType: tier,
+        quantity: quantity,
       );
 
-      // Check minimum quantity requirement
-      if (quantity < priceTier.minQuantity) {
+      if (priceTier == null) {
         state = state.copyWith(
           isLoading: false,
-          error: 'Minimum quantity for ${tier.name} pricing is ${priceTier.minQuantity}',
+          error: 'No valid price tier available for $quantity units of ${tier.name}',
         );
         return false;
       }
 
-      // Check maximum quantity requirement
-      if (priceTier.maxQuantity != null && quantity > priceTier.maxQuantity!) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Maximum quantity for ${tier.name} pricing is ${priceTier.maxQuantity}',
-        );
-        return false;
-      }
+      // Note: Quantity validation is now handled by getTierForQuantity
+      // It automatically finds the right tier based on quantity ranges
 
       // Check stock availability
       final branchId = await ProductService.getDefaultBranchId();
@@ -214,26 +206,24 @@ class CartNotifier extends Notifier<CartState> {
       }
 
       final item = state.items[itemIndex];
-      final priceTier = item.product.priceTiers.firstWhere(
-        (p) => p.tierType == tier && p.isActive,
+
+      // Get the appropriate price tier for the new quantity (quantity-aware)
+      final priceTier = ProductService.getTierForQuantity(
+        product: item.product,
+        tierType: tier,
+        quantity: newQuantity,
       );
 
-      // Validate quantity constraints
-      if (newQuantity < priceTier.minQuantity) {
+      if (priceTier == null) {
         state = state.copyWith(
           isLoading: false,
-          error: 'Minimum quantity for ${tier.name} pricing is ${priceTier.minQuantity}',
+          error: 'No valid price tier available for $newQuantity units of ${tier.name}',
         );
         return false;
       }
 
-      if (priceTier.maxQuantity != null && newQuantity > priceTier.maxQuantity!) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Maximum quantity for ${tier.name} pricing is ${priceTier.maxQuantity}',
-        );
-        return false;
-      }
+      // Note: Quantity validation is now handled by getTierForQuantity
+      // It automatically finds the right tier based on quantity ranges
 
       // Check stock availability
       final branchId = await ProductService.getDefaultBranchId();
@@ -320,14 +310,13 @@ class CartNotifier extends Notifier<CartState> {
       'items': state.items.map((item) => {
         'product_id': item.product.id,
         'product_name': item.product.name,
-        'pricing_tier': item.selectedTier.name,
+        'pricing_type': item.selectedTier.name,
         'quantity': item.quantity,
         'unit_price': item.unitPrice,
         'total_price': item.totalPrice,
       }).toList(),
       'total_items': state.totalItems,
       'subtotal': state.subtotal,
-      'tax_amount': state.taxAmount,
       'total_amount': state.total,
     };
   }

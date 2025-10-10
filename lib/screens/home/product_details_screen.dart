@@ -216,8 +216,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
           ),
           const SizedBox(height: 12),
           _buildInfoRow('Unit of Measure', product.unitOfMeasure),
-          if (product.sku != null) _buildInfoRow('SKU', product.sku!),
-          if (product.barcode != null) _buildInfoRow('Barcode', product.barcode!),
+          if (product.productId != null) _buildInfoRow('Product ID', product.productId!),
           _buildInfoRow('Status', product.status.name.toUpperCase()),
           _buildInfoRow('Product Type', product.isFrozen ? 'Frozen' : 'Fresh'),
         ],
@@ -345,7 +344,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -443,7 +442,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                   ),
                 ],
               ),
-            )).toList(),
+            )),
           ],
         ],
       ),
@@ -589,6 +588,9 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                       onPressed: !isInStock || selectedPrice == null
                           ? null
                           : () async {
+                              // Capture ScaffoldMessenger before async operations
+                              final scaffoldMessenger = ScaffoldMessenger.of(context);
+
                               final cartNotifier = ref.read(cartProvider.notifier);
                               final success = await cartNotifier.addToCart(
                                 product: product,
@@ -596,8 +598,10 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                                 quantity: _selectedQuantity,
                               );
 
+                              if (!mounted) return;
+
                               if (success) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                scaffoldMessenger.showSnackBar(
                                   SnackBar(
                                     content: Text('${product.name} (${_selectedQuantity}x) added to cart'),
                                     backgroundColor: AppColors.success,
@@ -606,7 +610,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                               } else {
                                 final error = ref.read(cartErrorProvider);
                                 if (error != null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  scaffoldMessenger.showSnackBar(
                                     SnackBar(
                                       content: Text(error),
                                       backgroundColor: AppColors.error,

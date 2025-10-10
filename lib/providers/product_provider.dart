@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/database_types.dart';
 import '../services/product_service.dart';
@@ -66,7 +67,7 @@ class ProductState {
       filtered = filtered.where((product) {
         return product.name.toLowerCase().contains(query) ||
             (product.description?.toLowerCase().contains(query) ?? false) ||
-            (product.sku?.toLowerCase().contains(query) ?? false) ||
+            (product.productId?.toLowerCase().contains(query) ?? false) ||
             (product.category?.name.toLowerCase().contains(query) ?? false) ||
             (product.brand?.name.toLowerCase().contains(query) ?? false);
       }).toList();
@@ -127,13 +128,13 @@ class ProductNotifier extends Notifier<ProductState> {
         isLoading: false,
       );
 
-      print('✅ PRODUCT PROVIDER INITIALIZED');
-      print('   Products: ${state.products.length}');
-      print('   Categories: ${state.categories.length}');
-      print('   Brands: ${state.brands.length}');
-      print('   Branch: ${state.currentBranchId}');
+      debugPrint('✅ PRODUCT PROVIDER INITIALIZED');
+      debugPrint('   Products: ${state.products.length}');
+      debugPrint('   Categories: ${state.categories.length}');
+      debugPrint('   Brands: ${state.brands.length}');
+      debugPrint('   Branch: ${state.currentBranchId}');
     } catch (e) {
-      print('❌ ERROR INITIALIZING PRODUCT PROVIDER: $e');
+      debugPrint('❌ ERROR INITIALIZING PRODUCT PROVIDER: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to load products. Please try again.',
@@ -160,9 +161,9 @@ class ProductNotifier extends Notifier<ProductState> {
         isLoading: false,
       );
 
-      print('✅ PRODUCTS REFRESHED: ${products.length} products');
+      debugPrint('✅ PRODUCTS REFRESHED: ${products.length} products');
     } catch (e) {
-      print('❌ ERROR REFRESHING PRODUCTS: $e');
+      debugPrint('❌ ERROR REFRESHING PRODUCTS: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to refresh products. Please try again.',
@@ -188,9 +189,9 @@ class ProductNotifier extends Notifier<ProductState> {
         isLoading: false,
       );
 
-      print('✅ SEARCH COMPLETED: "${query}" -> ${products.length} results');
+      debugPrint('✅ SEARCH COMPLETED: "$query" -> ${products.length} results');
     } catch (e) {
-      print('❌ ERROR SEARCHING PRODUCTS: $e');
+      debugPrint('❌ ERROR SEARCHING PRODUCTS: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Search failed. Please try again.',
@@ -238,9 +239,9 @@ class ProductNotifier extends Notifier<ProductState> {
         isLoading: false,
       );
 
-      print('✅ ALL PRODUCTS REFRESHED: ${products.length} products');
+      debugPrint('✅ ALL PRODUCTS REFRESHED: ${products.length} products');
     } catch (e) {
-      print('❌ ERROR REFRESHING ALL PRODUCTS: $e');
+      debugPrint('❌ ERROR REFRESHING ALL PRODUCTS: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to refresh products. Please try again.',

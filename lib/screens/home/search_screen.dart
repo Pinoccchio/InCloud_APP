@@ -15,7 +15,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
-  String? _selectedCategoryId; // Store category ID instead of name
+  String? _selectedBrandId; // Store brand ID instead of name
   String _selectedSortBy = 'Name';
   PricingTier _selectedPricingTier = PricingTier.retail;
 
@@ -38,12 +38,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ref.read(productProvider.notifier).searchProducts(query);
   }
 
-  void _handleCategoryChange(String? categoryId) {
+  void _handleBrandChange(String? brandId) {
     setState(() {
-      _selectedCategoryId = categoryId;
+      _selectedBrandId = brandId;
     });
-    ref.read(productProvider.notifier).setCategory(
-      categoryId == 'All' ? null : categoryId,
+    ref.read(productProvider.notifier).setBrand(
+      brandId == 'All' ? null : brandId,
     );
   }
 
@@ -102,9 +102,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   double? _getProductPrice(Product product) {
-    final tier = product.priceTiers.firstWhere(
-      (t) => t.tierType == _selectedPricingTier && t.isActive,
-      orElse: () => product.priceTiers.firstWhere(
+    // Get all active tiers of the selected type
+    final tiersOfType = product.priceTiers
+        .where((t) => t.tierType == _selectedPricingTier && t.isActive)
+        .toList();
+
+    if (tiersOfType.isEmpty) {
+      // Fallback to any active tier
+      final anyTier = product.priceTiers.firstWhere(
         (t) => t.isActive,
         orElse: () => PriceTier(
           id: '',
@@ -114,25 +119,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           createdAt: app_date_utils.DateUtils.nowInUtc(),
           updatedAt: app_date_utils.DateUtils.nowInUtc(),
         ),
-      ),
-    );
-    return tier.price;
+      );
+      return anyTier.price;
+    }
+
+    // If multiple tiers exist, return the lowest price (best deal for customer)
+    // Sort by price ascending and return the first (lowest)
+    tiersOfType.sort((a, b) => a.price.compareTo(b.price));
+    return tiersOfType.first.price;
   }
 
   @override
   Widget build(BuildContext context) {
     final products = ref.watch(productsListProvider);
-    final categories = ref.watch(categoriesProvider);
+    final brands = ref.watch(brandsProvider);
     final isLoading = ref.watch(isLoadingProductsProvider);
     final error = ref.watch(productErrorProvider);
 
     // Get sorted products
     final sortedProducts = _getSortedProducts(products);
 
-    // Build category options with proper ID mapping
-    final categoryOptions = [
+    // Build brand options with proper ID mapping
+    final brandOptions = [
       {'id': 'All', 'name': 'All'},
-      ...categories.map((c) => {'id': c.id, 'name': c.name})
+      ...brands.map((b) => {'id': b.id, 'name': b.name})
     ];
 
     return Scaffold(
@@ -187,25 +197,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   // Filters Row
                   Row(
                     children: [
-                      // Category Filter
+                      // Brand Filter
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedCategoryId ?? 'All',
+                          value: _selectedBrandId ?? 'All',
                           decoration: InputDecoration(
-                            labelText: 'Category',
+                            labelText: 'Brand',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           ),
-                          items: categoryOptions.map((option) {
+                          items: brandOptions.map((option) {
                             return DropdownMenuItem(
                               value: option['id'],
                               child: Text(option['name']!),
                             );
                           }).toList(),
-                          onChanged: (categoryId) {
-                            _handleCategoryChange(categoryId);
+                          onChanged: (brandId) {
+                            _handleBrandChange(brandId);
                           },
                         ),
                       ),
@@ -262,7 +272,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 _selectedPricingTier = tier;
                               });
                             },
-                            selectedColor: AppColors.primaryBlue.withOpacity(0.2),
+                            selectedColor: AppColors.primaryBlue.withValues(alpha: 0.2),
                             labelStyle: TextStyle(
                               color: _selectedPricingTier == tier
                                   ? AppColors.primaryBlue
@@ -273,7 +283,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             ),
                           ),
                         ),
-                      ).toList(),
+                      ),
                     ],
                   ),
                 ],
@@ -513,7 +523,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
                   const SizedBox(height: 8),
 
-                  // Unit of Measure and SKU
+                  // Unit of Measure and Product ID
                   Row(
                     children: [
                       Expanded(
@@ -525,10 +535,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           ),
                         ),
                       ),
-                      if (product.sku != null)
+                      if (product.productId != null)
                         Expanded(
                           child: Text(
-                            'SKU: ${product.sku}',
+                            'Product ID: ${product.productId}',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textTertiary,

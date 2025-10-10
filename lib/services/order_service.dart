@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import '../models/database_types.dart';
 import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 import '../core/utils/date_utils.dart' as app_date_utils;
 
 class OrderService {
@@ -56,10 +58,9 @@ class OrderService {
         }
       }
 
-      // Calculate totals
+      // Calculate totals (no tax/VAT as per business requirements)
       final subtotal = cartItems.fold(0.0, (sum, item) => sum + item.totalPrice);
-      final taxAmount = subtotal * 0.12; // 12% VAT
-      final totalAmount = subtotal + taxAmount;
+      final totalAmount = subtotal; // Total equals subtotal (no tax)
 
       if (subtotal <= 0) {
         throw Exception('Order total cannot be zero or negative');
@@ -72,7 +73,6 @@ class OrderService {
       print('   Customer: $customerId');
       print('   Branch: $branchId');
       print('   Subtotal: ₱${subtotal.toStringAsFixed(2)}');
-      print('   Tax: ₱${taxAmount.toStringAsFixed(2)}');
       print('   Total: ₱${totalAmount.toStringAsFixed(2)}');
 
       // Create order
@@ -86,7 +86,6 @@ class OrderService {
         'delivery_address': deliveryAddress ?? customerProfile['address'] ?? {},
         'subtotal': subtotal,
         'discount_amount': 0,
-        'tax_amount': taxAmount,
         'total_amount': totalAmount,
         'notes': notes,
         'created_by_user_id': user.id, // User who created this order
@@ -109,7 +108,7 @@ class OrderService {
       final orderItems = cartItems.map((item) => {
         'order_id': orderId,
         'product_id': item.product.id,
-        'pricing_tier': item.selectedTier.name,
+        'pricing_type': item.selectedTier.name,
         'quantity': item.quantity,
         'unit_price': item.unitPrice,
         'total_price': item.totalPrice,
@@ -249,7 +248,7 @@ class OrderService {
                 ),
                 price_tiers!price_tiers_product_id_fkey (
                   id,
-                  tier_type,
+                  pricing_type,
                   price,
                   min_quantity,
                   max_quantity,
@@ -361,10 +360,10 @@ class OrderService {
 
         final product = orderItem.product!;
 
-        // Check if product is still active
-        if (product.status != ProductStatus.active) {
+        // Check if product is still available
+        if (product.status != ProductStatus.available) {
           unavailableItems.add(product.name);
-          print('⚠️ Skipping ${product.name}: Product is no longer active (${product.status})');
+          print('⚠️ Skipping ${product.name}: Product is no longer available (${product.status})');
           continue;
         }
 
@@ -580,5 +579,59 @@ class OrderService {
           'description': 'Payment was cancelled',
         };
     }
+  }
+
+  /// Upload proof of payment for an order
+  static Future<bool> uploadProofOfPayment({
+    required String orderId,
+    required File imageFile,
+  }) async {
+    try {
+      print('📤 UPLOADING PROOF OF PAYMENT FOR ORDER: $orderId');
+
+      // Verify order exists and belongs to current user
+      final order = await getOrderById(orderId);
+      if (order == null) {
+        throw Exception('Order not found');
+      }
+
+      // Upload image to Supabase Storage
+      final imageUrl = await StorageService.uploadProofOfPayment(
+        orderId: orderId,
+        imageFile: imageFile,
+      );
+
+      if (imageUrl == null) {
+        throw Exception('Failed to upload image to storage');
+      }
+
+      print('✅ IMAGE UPLOADED: $imageUrl');
+
+      // Update order with proof of payment URL and status
+      await _client
+          .from('orders')
+          .update({
+            'proof_of_payment_url': imageUrl,
+            'proof_of_payment_status': 'pending',
+            'updated_at': app_date_utils.DateUtils.nowInUtcString(),
+          })
+          .eq('id', orderId);
+
+      print('✅ PROOF OF PAYMENT UPLOADED SUCCESSFULLY');
+      return true;
+    } catch (e) {
+      print('❌ ERROR UPLOADING PROOF OF PAYMENT: $e');
+      debugPrint('Proof of payment upload error: $e');
+      return false;
+    }
+  }
+
+  /// Check if order can upload proof of payment
+  static bool canUploadProofOfPayment(Order order) {
+    // Can upload if order is confirmed or in_transit and payment is pending
+    return (order.status == OrderStatus.confirmed ||
+            order.status == OrderStatus.in_transit ||
+            order.status == OrderStatus.delivered) &&
+           order.paymentStatus == PaymentStatus.pending;
   }
 }

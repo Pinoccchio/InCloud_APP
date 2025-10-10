@@ -12,7 +12,6 @@ class CartScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cartState = ref.watch(cartProvider);
     final cartItems = ref.watch(cartItemsProvider);
     final totalItems = ref.watch(cartTotalItemsProvider);
     final subtotal = ref.watch(cartSubtotalProvider);
@@ -167,27 +166,6 @@ class CartScreen extends ConsumerWidget {
                         ),
                         Text(
                           '₱${subtotal.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Tax (12%):',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          '₱${cartState.taxAmount.toStringAsFixed(2)}',
                           style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 16,

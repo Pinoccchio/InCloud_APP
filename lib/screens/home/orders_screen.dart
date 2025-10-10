@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/date_utils.dart' as app_date_utils;
 import '../../models/database_types.dart';
@@ -622,8 +624,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   void _handleReorder(Order order) async {
     if (!mounted) return;
 
+    // Capture ScaffoldMessenger before async operations
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     // Show loading indicator
-    ScaffoldMessenger.of(context).showSnackBar(
+    scaffoldMessenger.showSnackBar(
       const SnackBar(
         content: Text('Preparing reorder...'),
         duration: Duration(seconds: 1),
@@ -660,10 +665,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           backgroundColor = AppColors.success;
         } else {
           message = '${reorderItems.length} of $originalItemCount items added to cart';
-          backgroundColor = AppColors.warning ?? Colors.orange;
+          backgroundColor = AppColors.warning;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) return;
+
+        scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text(message),
             backgroundColor: backgroundColor,
@@ -676,7 +683,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
         );
       } else {
         // No items could be added
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           const SnackBar(
             content: Text('No items available for reorder'),
             backgroundColor: AppColors.error,
@@ -685,7 +692,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text('Failed to prepare reorder: ${e.toString()}'),
             backgroundColor: AppColors.error,
@@ -696,14 +703,22 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   }
 }
 
-class _OrderDetailsSheet extends StatelessWidget {
+class _OrderDetailsSheet extends StatefulWidget {
   final Order order;
 
   const _OrderDetailsSheet({required this.order});
 
   @override
+  State<_OrderDetailsSheet> createState() => _OrderDetailsSheetState();
+}
+
+class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
+  bool _isUploading = false;
+  final ImagePicker _picker = ImagePicker();
+
+  @override
   Widget build(BuildContext context) {
-    final statusInfo = OrderService.getOrderStatusInfo(order.status);
+    final statusInfo = OrderService.getOrderStatusInfo(widget.order.status);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.8,
@@ -762,7 +777,7 @@ class _OrderDetailsSheet extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          order.orderNumber,
+                          widget.order.orderNumber,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -775,7 +790,7 @@ class _OrderDetailsSheet extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: _getStatusColor(order.status).withValues(alpha: 0.1),
+                                color: _getStatusColor(widget.order.status).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -783,7 +798,7 @@ class _OrderDetailsSheet extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: _getStatusColor(order.status),
+                                  color: _getStatusColor(widget.order.status),
                                 ),
                               ),
                             ),
@@ -795,10 +810,10 @@ class _OrderDetailsSheet extends StatelessWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: _getStatusColor(order.status).withValues(alpha: 0.05),
+                            color: _getStatusColor(widget.order.status).withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: _getStatusColor(order.status).withValues(alpha: 0.2),
+                              color: _getStatusColor(widget.order.status).withValues(alpha: 0.2),
                             ),
                           ),
                           child: Column(
@@ -813,19 +828,26 @@ class _OrderDetailsSheet extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              _OrderDetailsSheet._buildStatusProgressionStatic(order.status),
+                              _buildStatusProgressionStatic(widget.order.status),
                             ],
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text('Order Date: ${app_date_utils.DateUtils.formatDetailedDateTime(order.orderDate)}'),
-                        if (order.deliveryDate != null)
-                          Text('Delivery Date: ${app_date_utils.DateUtils.formatDetailedDateTime(order.deliveryDate!)}'),
+                        Text('Order Date: ${app_date_utils.DateUtils.formatDetailedDateTime(widget.order.orderDate)}'),
+                        if (widget.order.deliveryDate != null)
+                          Text('Delivery Date: ${app_date_utils.DateUtils.formatDetailedDateTime(widget.order.deliveryDate!)}'),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 16),
+
+                  // Proof of Payment Section
+                  if (OrderService.canUploadProofOfPayment(widget.order) || widget.order.proofOfPaymentUrl != null)
+                    _buildProofOfPaymentSection(),
+
+                  if (OrderService.canUploadProofOfPayment(widget.order) || widget.order.proofOfPaymentUrl != null)
+                    const SizedBox(height: 16),
 
                   // Order Items
                   Text(
@@ -836,7 +858,7 @@ class _OrderDetailsSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  ...order.items.map((item) => Container(
+                  ...widget.order.items.map((item) => Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -899,27 +921,19 @@ class _OrderDetailsSheet extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('Subtotal:'),
-                            Text('₱${order.subtotal.toStringAsFixed(2)}'),
+                            Text('₱${widget.order.subtotal.toStringAsFixed(2)}'),
                           ],
                         ),
-                        if (order.discountAmount > 0) ...[
+                        if (widget.order.discountAmount > 0) ...[
                           const SizedBox(height: 8),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('Discount:'),
-                              Text('-₱${order.discountAmount.toStringAsFixed(2)}'),
+                              Text('-₱${widget.order.discountAmount.toStringAsFixed(2)}'),
                             ],
                           ),
                         ],
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Tax (12%):'),
-                            Text('₱${order.taxAmount.toStringAsFixed(2)}'),
-                          ],
-                        ),
                         const Divider(),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -932,7 +946,7 @@ class _OrderDetailsSheet extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '₱${order.totalAmount.toStringAsFixed(2)}',
+                              '₱${widget.order.totalAmount.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -946,7 +960,7 @@ class _OrderDetailsSheet extends StatelessWidget {
                   ),
 
                   // Cancellation Details (for cancelled orders)
-                  if (order.status == OrderStatus.cancelled) ...[
+                  if (widget.order.status == OrderStatus.cancelled) ...[
                     const SizedBox(height: 16),
                     Container(
                       width: double.infinity,
@@ -974,9 +988,9 @@ class _OrderDetailsSheet extends StatelessWidget {
                             ],
                           ),
                           // Show cancellation reason from status history
-                          if (order.statusHistory.isNotEmpty) ...[
+                          if (widget.order.statusHistory.isNotEmpty) ...[
                             const SizedBox(height: 8),
-                            ...order.statusHistory
+                            ...widget.order.statusHistory
                                 .where((h) => h.newStatus == OrderStatus.cancelled && h.notes != null && h.notes!.isNotEmpty)
                                 .map((history) => Text(
                                   'Reason: ${history.notes}',
@@ -992,7 +1006,7 @@ class _OrderDetailsSheet extends StatelessWidget {
                   ],
 
                   // Notes
-                  if (order.notes != null && order.notes!.isNotEmpty) ...[
+                  if (widget.order.notes != null && widget.order.notes!.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
                       'Notes',
@@ -1008,12 +1022,12 @@ class _OrderDetailsSheet extends StatelessWidget {
                         color: AppColors.surfacePrimary,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(order.notes!),
+                      child: Text(widget.order.notes!),
                     ),
                   ],
 
                   // Status History
-                  if (order.statusHistory.isNotEmpty) ...[
+                  if (widget.order.statusHistory.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
                       'Order History',
@@ -1028,7 +1042,7 @@ class _OrderDetailsSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
-                        children: order.statusHistory.map((history) => _buildStatusHistoryItem(history)).toList(),
+                        children: widget.order.statusHistory.map((history) => _buildStatusHistoryItem(history)).toList(),
                       ),
                     ),
                   ],
@@ -1163,6 +1177,273 @@ class _OrderDetailsSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // Upload proof of payment
+  Future<void> _uploadProofOfPayment() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      setState(() => _isUploading = true);
+
+      final imageFile = File(image.path);
+      final success = await OrderService.uploadProofOfPayment(
+        orderId: widget.order.id,
+        imageFile: imageFile,
+      );
+
+      if (!mounted) return;
+
+      setState(() => _isUploading = false);
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Proof of payment uploaded successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.of(context).pop(); // Close modal to refresh
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to upload proof of payment'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isUploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  // Build proof of payment section
+  Widget _buildProofOfPaymentSection() {
+    final hasProof = widget.order.proofOfPaymentUrl != null;
+    final canUpload = OrderService.canUploadProofOfPayment(widget.order);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gray300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.receipt_long, size: 20, color: AppColors.primaryBlue),
+              const SizedBox(width: 8),
+              Text(
+                'Proof of Payment',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (hasProof) ...[
+            // Show uploaded proof
+            Container(
+              width: double.infinity,
+              height: 200,
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.gray300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  widget.order.proofOfPaymentUrl!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                    child: Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Proof status badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _getProofStatusColor(widget.order.proofOfPaymentStatus).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _getProofStatusColor(widget.order.proofOfPaymentStatus).withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getProofStatusIcon(widget.order.proofOfPaymentStatus),
+                    size: 16,
+                    color: _getProofStatusColor(widget.order.proofOfPaymentStatus),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _getProofStatusText(widget.order.proofOfPaymentStatus),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _getProofStatusColor(widget.order.proofOfPaymentStatus),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Rejection reason if rejected
+            if (widget.order.proofOfPaymentStatus == 'rejected' && widget.order.proofRejectionReason != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rejection Reason:',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.order.proofRejectionReason!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.red.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Resubmit button if rejected
+            if (widget.order.proofOfPaymentStatus == 'rejected' && canUpload) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isUploading ? null : _uploadProofOfPayment,
+                  icon: _isUploading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.refresh),
+                  label: Text(_isUploading ? 'Uploading...' : 'Resubmit Proof'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                ),
+              ),
+            ],
+          ] else if (canUpload) ...[
+            // Upload button
+            Text(
+              'Upload a screenshot or photo of your payment receipt',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isUploading ? null : _uploadProofOfPayment,
+                icon: _isUploading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.upload_file),
+                label: Text(_isUploading ? 'Uploading...' : 'Upload Proof of Payment'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryBlue,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _getProofStatusColor(String? status) {
+    switch (status) {
+      case 'approved':
+        return AppColors.success;
+      case 'rejected':
+        return AppColors.error;
+      case 'pending':
+        return Colors.orange;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  IconData _getProofStatusIcon(String? status) {
+    switch (status) {
+      case 'approved':
+        return Icons.check_circle;
+      case 'rejected':
+        return Icons.cancel;
+      case 'pending':
+        return Icons.pending;
+      default:
+        return Icons.info;
+    }
+  }
+
+  String _getProofStatusText(String? status) {
+    switch (status) {
+      case 'approved':
+        return 'Proof Approved';
+      case 'rejected':
+        return 'Proof Rejected';
+      case 'pending':
+        return 'Pending Review';
+      default:
+        return 'Not Submitted';
+    }
   }
 
   static Widget _buildStatusProgressionStatic(OrderStatus currentStatus) {

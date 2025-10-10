@@ -40,7 +40,7 @@ final dashboardMetricsProvider = FutureProvider<DashboardMetrics>((ref) async {
       supabase
           .from('products')
           .select('id')
-          .eq('status', 'active')
+          .eq('status', 'available')
           .count(CountOption.exact),
       // Categories count
       supabase
