@@ -94,6 +94,20 @@ class ProductState {
 
     return filtered;
   }
+
+  // Get brands that actually have products (to avoid showing brands with no products)
+  List<Brand> get brandsWithProducts {
+    if (products.isEmpty) return brands;
+
+    // Get unique brand IDs from available products
+    final brandIds = products
+        .where((p) => p.brandId != null)
+        .map((p) => p.brandId!)
+        .toSet();
+
+    // Return only brands that have at least one product
+    return brands.where((b) => brandIds.contains(b.id)).toList();
+  }
 }
 
 // Product provider
@@ -334,6 +348,11 @@ final categoriesProvider = Provider<List<Category>>((ref) {
 
 final brandsProvider = Provider<List<Brand>>((ref) {
   return ref.watch(productProvider).brands;
+});
+
+// Provider for brands that have products (filtered)
+final brandsWithProductsProvider = Provider<List<Brand>>((ref) {
+  return ref.watch(productProvider).brandsWithProducts;
 });
 
 final isLoadingProductsProvider = Provider<bool>((ref) {

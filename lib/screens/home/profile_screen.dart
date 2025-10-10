@@ -115,7 +115,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     return SafeArea(
-      child: SingleChildScrollView(
+      child: RefreshIndicator(
+        onRefresh: () async {
+          await _loadProfile();
+        },
+        child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,6 +327,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

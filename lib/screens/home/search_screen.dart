@@ -132,23 +132,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final products = ref.watch(productsListProvider);
-    final brands = ref.watch(brandsProvider);
+    final brandsWithProducts = ref.watch(brandsWithProductsProvider);
     final isLoading = ref.watch(isLoadingProductsProvider);
     final error = ref.watch(productErrorProvider);
 
     // Get sorted products
     final sortedProducts = _getSortedProducts(products);
 
-    // Build brand options with proper ID mapping
+    // Build brand options with proper ID mapping - only show brands with products
     final brandOptions = [
       {'id': 'All', 'name': 'All'},
-      ...brands.map((b) => {'id': b.id, 'name': b.name})
+      ...brandsWithProducts.map((b) => {'id': b.id, 'name': b.name})
     ];
 
     return Scaffold(
       backgroundColor: AppColors.surfacePrimary,
       body: SafeArea(
-        child: Column(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await ref.read(productProvider.notifier).refreshProducts();
+          },
+          child: Column(
           children: [
             // Header
             Padding(
@@ -346,37 +350,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : sortedProducts.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.search_off,
-                                size: 64,
-                                color: AppColors.textTertiary,
+                      ? SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.5,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.search_off,
+                                    size: 64,
+                                    color: AppColors.textTertiary,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No products found',
+                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                  ),
+                                  Text(
+                                    'Try adjusting your search or filters',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          color: AppColors.textTertiary,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: () => ref.read(productProvider.notifier).clearFilters(),
+                                    child: const Text('Clear Filters'),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No products found',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
-                              ),
-                              Text(
-                                'Try adjusting your search or filters',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.textTertiary,
-                                    ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () => ref.read(productProvider.notifier).clearFilters(),
-                                child: const Text('Clear Filters'),
-                              ),
-                            ],
+                            ),
                           ),
                         )
                       : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(16),
                           itemCount: sortedProducts.length,
                           itemBuilder: (context, index) {
@@ -386,6 +397,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ),
             ),
           ],
+        ),
         ),
       ),
     );

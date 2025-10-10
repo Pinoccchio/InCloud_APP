@@ -23,7 +23,11 @@ class CartScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surfacePrimary,
       body: SafeArea(
-        child: Column(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await ref.read(cartProvider.notifier).validateCart();
+          },
+          child: Column(
           children: [
             // Header
             Padding(
@@ -100,7 +104,13 @@ class CartScreen extends ConsumerWidget {
             // Cart Items
             Expanded(
               child: isEmpty
-                  ? _buildEmptyCart(context)
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        child: _buildEmptyCart(context),
+                      ),
+                    )
                   : Column(
                       children: [
                         // Items Count
@@ -123,6 +133,7 @@ class CartScreen extends ConsumerWidget {
                         // Cart Items List
                         Expanded(
                           child: ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             itemCount: cartItems.length,
                             itemBuilder: (context, index) {
@@ -262,6 +273,7 @@ class CartScreen extends ConsumerWidget {
                 ),
               ),
           ],
+        ),
         ),
       ),
     );

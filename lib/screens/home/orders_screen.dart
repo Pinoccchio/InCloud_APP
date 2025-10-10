@@ -49,7 +49,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     return Scaffold(
       backgroundColor: AppColors.surfacePrimary,
       body: SafeArea(
-        child: Column(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await ref.read(orderProvider.notifier).refreshOrders();
+          },
+          child: Column(
           children: [
             // Header
             Padding(
@@ -166,7 +170,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : orders.isEmpty
-                      ? _buildEmptyOrders(context)
+                      ? SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.6,
+                            child: _buildEmptyOrders(context),
+                          ),
+                        )
                       : TabBarView(
                           controller: _tabController,
                           children: [
@@ -178,6 +188,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                         ),
             ),
           ],
+        ),
         ),
       ),
     );
@@ -271,29 +282,36 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
 
   Widget _buildOrdersList(List<Order> orders) {
     if (orders.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 64,
-              color: AppColors.textTertiary,
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: 400,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 64,
+                  color: AppColors.textTertiary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No orders in this category',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              'No orders in this category',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 16,
-              ),
-            ),
-          ],
+          ),
         ),
       );
     }
 
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: orders.length,
       itemBuilder: (context, index) {
@@ -1231,6 +1249,105 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
     }
   }
 
+  // Show proof of payment in fullscreen
+  void _showProofFullscreen(BuildContext context) {
+    if (widget.order.proofOfPaymentUrl == null) return;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          children: [
+            // Full-size image
+            Center(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.8,
+                  maxWidth: MediaQuery.of(context).size.width,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    widget.order.proofOfPaymentUrl!,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 64, color: AppColors.error),
+                          SizedBox(height: 16),
+                          Text(
+                            'Failed to load image',
+                            style: TextStyle(color: AppColors.error),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Close button
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 32,
+                ),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black.withValues(alpha: 0.5),
+                  padding: const EdgeInsets.all(8),
+                ),
+              ),
+            ),
+
+            // Image info at bottom
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Proof of Payment for Order ${widget.order.orderNumber}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Build proof of payment section
   Widget _buildProofOfPaymentSection() {
     final hasProof = widget.order.proofOfPaymentUrl != null;
@@ -1263,21 +1380,57 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
 
           if (hasProof) ...[
             // Show uploaded proof
-            Container(
-              width: double.infinity,
-              height: 200,
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.gray300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  widget.order.proofOfPaymentUrl!,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const Center(
-                    child: Icon(Icons.error_outline, size: 48, color: AppColors.error),
-                  ),
+            GestureDetector(
+              onTap: () => _showProofFullscreen(context),
+              child: Container(
+                width: double.infinity,
+                height: 200,
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.gray300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        widget.order.proofOfPaymentUrl!,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (context, error, stackTrace) => const Center(
+                          child: Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                        ),
+                      ),
+                    ),
+                    // Overlay hint to tap for full size
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.zoom_in, size: 14, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text(
+                              'Tap to view',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
