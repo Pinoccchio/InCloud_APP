@@ -83,14 +83,9 @@ class ProductState {
       filtered = filtered.where((product) => product.brandId == selectedBrandId).toList();
     }
 
-    // Filter by availability in current branch
-    if (currentBranchId != null) {
-      filtered = filtered.where((product) {
-        return product.inventory.any((inv) =>
-          inv.branchId == currentBranchId && inv.availableQuantity > 0
-        );
-      }).toList();
-    }
+    // NOTE: Branch filter removed - show all products regardless of stock in current branch
+    // Products are centralized; inventory is branch-specific. UI shows stock badges for context.
+    // This matches web dashboard behavior where all 49 products are visible.
 
     return filtered;
   }
@@ -156,19 +151,15 @@ class ProductNotifier extends Notifier<ProductState> {
     }
   }
 
-  // Refresh products
+  // Refresh products (fetches all products without filters - filtering happens client-side)
   Future<void> refreshProducts() async {
     if (state.isLoading) return;
 
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final products = await ProductService.getProducts(
-        searchQuery: state.searchQuery.isNotEmpty ? state.searchQuery : null,
-        categoryId: state.selectedCategoryId,
-        brandId: state.selectedBrandId,
-        branchId: state.currentBranchId, // Keep for inventory filtering only
-      );
+      // Fetch ALL products without any filters - client-side filtering via filteredProducts getter
+      final products = await ProductService.getProducts();
 
       state = state.copyWith(
         products: products,
@@ -185,44 +176,26 @@ class ProductNotifier extends Notifier<ProductState> {
     }
   }
 
-  // Search products
-  Future<void> searchProducts(String query) async {
-    state = state.copyWith(searchQuery: query, isLoading: true, error: null);
-
-    try {
-      final products = await ProductService.searchProducts(
-        query: query,
-        categoryId: state.selectedCategoryId,
-        brandId: state.selectedBrandId,
-        branchId: state.currentBranchId,
-        inStockOnly: true,
-      );
-
-      state = state.copyWith(
-        products: products,
-        isLoading: false,
-      );
-
-      debugPrint('✅ SEARCH COMPLETED: "$query" -> ${products.length} results');
-    } catch (e) {
-      debugPrint('❌ ERROR SEARCHING PRODUCTS: $e');
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Search failed. Please try again.',
-      );
-    }
+  // Search products (client-side filtering via filteredProducts getter)
+  // This method updates the search query state only - the actual filtering happens
+  // in the filteredProducts getter, ensuring state.products always contains the full list
+  void searchProducts(String query) {
+    state = state.copyWith(searchQuery: query);
+    debugPrint('✅ SEARCH QUERY SET: "$query"');
   }
 
   // Set category filter
   void setCategory(String? categoryId) {
     state = state.copyWith(selectedCategoryId: categoryId);
-    _applyFilters();
+    // Don't re-fetch - let filteredProducts getter handle filtering client-side
+    debugPrint('✅ CATEGORY FILTER SET: $categoryId');
   }
 
   // Set brand filter
   void setBrand(String? brandId) {
     state = state.copyWith(selectedBrandId: brandId);
-    _applyFilters();
+    // Don't re-fetch - let filteredProducts getter handle filtering client-side
+    debugPrint('✅ BRAND FILTER SET: $brandId');
   }
 
   // Clear all filters
@@ -235,18 +208,15 @@ class ProductNotifier extends Notifier<ProductState> {
     _refreshAllProducts();
   }
 
-  // Refresh all products without branch filtering (products are centralized)
+  // Refresh all products without any filters (products are centralized)
   Future<void> _refreshAllProducts() async {
     if (state.isLoading) return;
 
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final products = await ProductService.getProducts(
-        categoryId: state.selectedCategoryId,
-        brandId: state.selectedBrandId,
-        // No branchId - products are centralized
-      );
+      // Fetch ALL products without any filters - products are centralized
+      final products = await ProductService.getProducts();
 
       state = state.copyWith(
         products: products,
@@ -260,16 +230,6 @@ class ProductNotifier extends Notifier<ProductState> {
         isLoading: false,
         error: 'Failed to refresh products. Please try again.',
       );
-    }
-  }
-
-  // Apply current filters to products
-  void _applyFilters() {
-    if (state.searchQuery.isNotEmpty) {
-      searchProducts(state.searchQuery);
-    } else {
-      // For non-search operations, fetch all products without branch filtering
-      _refreshAllProducts();
     }
   }
 

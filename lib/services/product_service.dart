@@ -7,7 +7,20 @@ class ProductService {
   static final SupabaseClient _client = Supabase.instance.client;
 
   /// Get all active products with their related data (categories, brands, price tiers, inventory)
-  /// Products are centralized and not branch-specific. Branch filtering is applied only for inventory.
+  ///
+  /// **Architecture**: Products are centralized - all products are visible system-wide regardless of branch.
+  /// This matches the web dashboard behavior where all 49 products are always visible.
+  ///
+  /// **Branch Filtering**: The [branchId] parameter is optional and used ONLY for inventory filtering.
+  /// - If provided: Returns all products, but filters inventory records to show only the specified branch
+  /// - If null: Returns all products with inventory from all branches
+  ///
+  /// **Use Cases**:
+  /// - Show all products in catalog (pass branchId=null)
+  /// - Show products with branch-specific inventory (pass branchId)
+  /// - Filter products by category/brand (use categoryId/brandId parameters)
+  ///
+  /// Products without stock in a branch are still returned - the UI layer handles display logic.
   static Future<List<Product>> getProducts({
     String? searchQuery,
     String? categoryId,
@@ -370,6 +383,12 @@ class ProductService {
   }
 
   /// Search products with advanced filtering
+  ///
+  /// **Note**: Like [getProducts], this returns all matching products regardless of branch.
+  /// The [branchId] and [inStockOnly] parameters control inventory filtering, not product visibility.
+  ///
+  /// When [inStockOnly] is true and [branchId] is provided, only products with stock in that
+  /// branch are returned. Otherwise, all products matching the search criteria are returned.
   static Future<List<Product>> searchProducts({
     required String query,
     String? categoryId,

@@ -42,8 +42,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     setState(() {
       _selectedBrandId = brandId;
     });
+    // Pass empty string instead of null to properly clear filter
+    // The filteredProducts getter checks isNotEmpty, so empty string = no filter
     ref.read(productProvider.notifier).setBrand(
-      brandId == 'All' ? null : brandId,
+      brandId == 'All' ? '' : brandId,
     );
   }
 
@@ -99,6 +101,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   int _getTotalStock(Product product) {
     return product.inventory.fold(0, (sum, inv) => sum + inv.availableQuantity);
+  }
+
+  /// Get stock available in the current branch (user's preferred branch)
+  int _getBranchStock(Product product) {
+    final currentBranchId = ref.read(productProvider).currentBranchId;
+    if (currentBranchId == null) return 0;
+
+    final branchInventory = product.inventory.where((inv) => inv.branchId == currentBranchId);
+    if (branchInventory.isEmpty) return 0;
+
+    return branchInventory.fold(0, (sum, inv) => sum + inv.availableQuantity);
   }
 
   double? _getProductPrice(Product product) {
@@ -405,9 +418,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildProductCard(Product product) {
     final price = _getProductPrice(product);
-    final totalStock = _getTotalStock(product);
-    final isInStock = totalStock > 0;
-    final isLowStock = totalStock > 0 && totalStock <= 10;
+    final branchStock = _getBranchStock(product); // Stock in user's current branch
+    final totalStock = _getTotalStock(product); // Total stock across all branches
+    final isInStockInBranch = branchStock > 0;
+    final isLowStockInBranch = branchStock > 0 && branchStock <= 10;
 
     return GestureDetector(
       onTap: () {
@@ -443,7 +457,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Product Name and Low Stock Badge
+                  // Product Name and Stock Badge
                   Row(
                     children: [
                       Expanded(
@@ -458,7 +472,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (isLowStock)
+                      // Show status badge based on branch stock
+                      if (!isInStockInBranch)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.error.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            'Out of Stock',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.error,
+                            ),
+                          ),
+                        )
+                      else if (isLowStockInBranch)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
@@ -593,14 +625,59 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            'Stock: $totalStock',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isInStock ? AppColors.success : AppColors.error,
-                              fontWeight: FontWeight.w600,
+                          // Branch-specific stock display
+                          if (isInStockInBranch)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'In Stock: $branchStock',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.success,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'At your branch',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textTertiary,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Not in Stock',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.error,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (totalStock > 0)
+                                  Text(
+                                    'Available elsewhere',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    'Out of stock',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.textTertiary,
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ),
+                          const SizedBox(height: 4),
                           if (product.isFrozen)
                             Row(
                               mainAxisSize: MainAxisSize.min,
