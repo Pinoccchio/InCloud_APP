@@ -282,7 +282,7 @@ class OrderService {
     }
   }
 
-  /// Cancel an order (only if status is pending)
+  /// Cancel an order using secure RPC function (only if status is pending)
   static Future<bool> cancelOrder(String orderId, String reason) async {
     try {
       print('❌ CANCELLING ORDER: $orderId');
@@ -298,37 +298,29 @@ class OrderService {
         throw Exception('Order cannot be cancelled (status: ${order.status.name})');
       }
 
-      // Get current user and customer profile for proper attribution
+      // Get current user
       final user = AuthService.currentUser;
       if (user == null) {
         throw Exception('User must be logged in to cancel orders');
       }
 
-      final customerProfile = await AuthService.getCustomerProfile();
-      if (customerProfile == null) {
-        throw Exception('Customer profile not found');
+      // Use secure RPC function to cancel order
+      final response = await _client.rpc('customer_cancel_order', params: {
+        'p_order_id': orderId,
+        'p_reason': reason,
+      });
+
+      // Check if the RPC call was successful
+      if (response == null) {
+        throw Exception('No response from server');
       }
-      // Customer ID not needed for order cancellation - order validation is sufficient
 
-      // Update order status - database trigger will automatically create status history
-      await _client
-          .from('orders')
-          .update({
-            'status': 'cancelled',
-            'notes': order.notes != null
-                ? '${order.notes}\nCancelled by customer: $reason'
-                : 'Cancelled by customer: $reason',
-            'updated_at': app_date_utils.DateUtils.nowInUtcString(),
-          })
-          .eq('id', orderId);
+      final result = response as Map<String, dynamic>;
+      if (result['success'] != true) {
+        throw Exception(result['error'] ?? 'Failed to cancel order');
+      }
 
-      // Update order items status
-      await _client
-          .from('order_items')
-          .update({'fulfillment_status': 'cancelled'})
-          .eq('order_id', orderId);
-
-      print('✅ ORDER CANCELLED SUCCESSFULLY');
+      print('✅ ORDER CANCELLED SUCCESSFULLY VIA RPC');
       return true;
     } catch (e) {
       print('❌ ERROR CANCELLING ORDER: $e');
@@ -581,7 +573,7 @@ class OrderService {
     }
   }
 
-  /// Upload proof of payment for an order
+  /// Upload proof of payment for an order using secure RPC function
   static Future<bool> uploadProofOfPayment({
     required String orderId,
     required File imageFile,
@@ -607,17 +599,23 @@ class OrderService {
 
       print('✅ IMAGE UPLOADED: $imageUrl');
 
-      // Update order with proof of payment URL and status
-      await _client
-          .from('orders')
-          .update({
-            'proof_of_payment_url': imageUrl,
-            'proof_of_payment_status': 'pending',
-            'updated_at': app_date_utils.DateUtils.nowInUtcString(),
-          })
-          .eq('id', orderId);
+      // Use secure RPC function to update order with proof of payment
+      final response = await _client.rpc('customer_upload_proof_of_payment', params: {
+        'p_order_id': orderId,
+        'p_proof_url': imageUrl,
+      });
 
-      print('✅ PROOF OF PAYMENT UPLOADED SUCCESSFULLY');
+      // Check if the RPC call was successful
+      if (response == null) {
+        throw Exception('No response from server');
+      }
+
+      final result = response as Map<String, dynamic>;
+      if (result['success'] != true) {
+        throw Exception(result['error'] ?? 'Failed to upload proof of payment');
+      }
+
+      print('✅ PROOF OF PAYMENT UPLOADED SUCCESSFULLY VIA RPC');
       return true;
     } catch (e) {
       print('❌ ERROR UPLOADING PROOF OF PAYMENT: $e');
