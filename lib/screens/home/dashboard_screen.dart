@@ -54,8 +54,12 @@ final dashboardMetricsProvider = FutureProvider<DashboardMetrics>((ref) async {
           .select('id')
           .eq('is_active', true)
           .count(CountOption.exact),
-      // Total stock and low stock items
-      supabase.from('inventory').select('available_quantity, low_stock_threshold'),
+      // Total stock and low stock items - **P0 CRITICAL FIX**: Include only non-expired batches
+      supabase.from('inventory').select('''
+        id,
+        low_stock_threshold,
+        batches:product_batches(quantity, is_active, status, expiration_date)
+      '''),
       // Orders count and status
       supabase.from('orders').select('id, status'),
     ]);
@@ -69,15 +73,33 @@ final dashboardMetricsProvider = FutureProvider<DashboardMetrics>((ref) async {
     // Parse brands count
     final brandsCount = (results[2] as PostgrestResponse).count;
 
-    // Calculate stock metrics
+    // Calculate stock metrics - **P0 CRITICAL FIX**: Filter expired batches
     final inventoryData = results[3] as List<dynamic>;
     int totalStock = 0;
     int lowStockItems = 0;
+    final now = DateTime.now().toUtc();
+
     for (var inv in inventoryData) {
-      final availableQty = inv['available_quantity'] as int? ?? 0;
       final threshold = inv['low_stock_threshold'] as int? ?? 10;
-      totalStock += availableQty;
-      if (availableQty <= threshold) {
+      final batches = inv['batches'] as List<dynamic>? ?? [];
+
+      // Calculate non-expired stock for this inventory record
+      int nonExpiredStock = 0;
+      for (var batch in batches) {
+        final isActive = batch['is_active'] as bool? ?? false;
+        final status = batch['status'] as String? ?? '';
+        final expirationStr = batch['expiration_date'] as String?;
+
+        if (isActive && status == 'active' && expirationStr != null) {
+          final expiration = DateTime.parse(expirationStr);
+          if (expiration.isAfter(now)) {
+            nonExpiredStock += batch['quantity'] as int? ?? 0;
+          }
+        }
+      }
+
+      totalStock += nonExpiredStock;
+      if (nonExpiredStock <= threshold && nonExpiredStock > 0) {
         lowStockItems++;
       }
     }
@@ -518,7 +540,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildProductCard(Product product) {
-    final totalStock = product.inventory.fold(0, (sum, inv) => sum + inv.availableQuantity);
+    // **P0 CRITICAL FIX**: Use non-expired stock only
+    final totalStock = product.inventory.fold(0, (sum, inv) => sum + inv.getAvailableNonExpiredQuantity());
     final isInStock = totalStock > 0;
 
     return Container(

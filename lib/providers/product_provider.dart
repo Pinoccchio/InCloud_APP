@@ -247,8 +247,9 @@ class ProductNotifier extends Notifier<ProductState> {
     final product = getProductById(productId);
     if (product == null || state.currentBranchId == null) return false;
 
+    // **P0 CRITICAL FIX**: Check non-expired stock only
     return product.inventory.any((inv) =>
-      inv.branchId == state.currentBranchId && inv.availableQuantity > 0
+      inv.branchId == state.currentBranchId && inv.getAvailableNonExpiredQuantity() > 0
     );
   }
 
@@ -269,7 +270,8 @@ class ProductNotifier extends Notifier<ProductState> {
       ),
     );
 
-    return inventory.availableQuantity;
+    // **P0 CRITICAL FIX**: Return non-expired stock only
+    return inventory.getAvailableNonExpiredQuantity();
   }
 
   // Get price for product with specific tier and quantity

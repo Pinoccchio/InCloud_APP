@@ -100,7 +100,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   int _getTotalStock(Product product) {
-    return product.inventory.fold(0, (sum, inv) => sum + inv.availableQuantity);
+    // **P0 CRITICAL FIX**: Use non-expired stock only
+    return product.inventory.fold(0, (sum, inv) => sum + inv.getAvailableNonExpiredQuantity());
   }
 
   /// Get stock available in the current branch (user's preferred branch)
@@ -111,7 +112,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final branchInventory = product.inventory.where((inv) => inv.branchId == currentBranchId);
     if (branchInventory.isEmpty) return 0;
 
-    return branchInventory.fold(0, (sum, inv) => sum + inv.availableQuantity);
+    // **P0 CRITICAL FIX**: Use non-expired stock only
+    return branchInventory.fold(0, (sum, inv) => sum + inv.getAvailableNonExpiredQuantity());
   }
 
   double? _getProductPrice(Product product) {

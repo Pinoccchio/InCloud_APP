@@ -117,8 +117,9 @@ class ProductService {
       // Filter by branch inventory if provided
       if (branchId != null && branchId.isNotEmpty) {
         products = products.where((product) {
+          // **P0 CRITICAL FIX**: Filter using non-expired stock only
           return product.inventory.any((inv) =>
-            inv.branchId == branchId && inv.availableQuantity > 0
+            inv.branchId == branchId && inv.getAvailableNonExpiredQuantity() > 0
           );
         }).toList();
       }
@@ -132,7 +133,8 @@ class ProductService {
         print('   Price tiers: ${sample.priceTiers.length}');
         print('   Inventory records: ${sample.inventory.length}');
         if (sample.inventory.isNotEmpty) {
-          print('   Available stock: ${sample.inventory.first.availableQuantity}');
+          // **P0 CRITICAL FIX**: Log non-expired stock for debugging
+          print('   Non-expired stock: ${sample.inventory.first.getAvailableNonExpiredQuantity()}');
         }
       }
 
@@ -251,33 +253,78 @@ class ProductService {
     }
   }
 
-  /// Get available stock for a product in a specific branch
+  /// Get available stock for a product in a specific branch (excluding expired batches)
+  ///
+  /// **CRITICAL**: This method filters out expired batches to prevent customers from
+  /// ordering products that have passed their expiration date.
+  ///
+  /// Uses the database function `get_available_stock_excluding_expired` which:
+  /// - Sums quantities from active, non-expired batches only
+  /// - Filters batches where expiration_date > NOW()
+  /// - Ensures food safety compliance
   static Future<int> getAvailableStock({
     required String productId,
     required String branchId,
   }) async {
     try {
-      print('📦 CHECKING STOCK: Product $productId in Branch $branchId');
+      print('📦 CHECKING NON-EXPIRED STOCK: Product $productId in Branch $branchId');
 
-      final response = await _client
-          .from('inventory')
-          .select('available_quantity')
-          .eq('product_id', productId)
-          .eq('branch_id', branchId)
-          .maybeSingle();
+      // Call RPC function that excludes expired batches
+      final response = await _client.rpc(
+        'get_available_stock_excluding_expired',
+        params: {
+          'p_product_id': productId,
+          'p_branch_id': branchId,
+        },
+      );
 
-      if (response != null) {
-        final stock = response['available_quantity'] as int;
-        print('✅ STOCK FOUND: $stock units available');
-        return stock;
-      } else {
-        print('⚠️ NO INVENTORY RECORD FOUND');
-        return 0;
-      }
+      final stock = response as int;
+      print('✅ NON-EXPIRED STOCK FOUND: $stock units available');
+      return stock;
     } catch (e) {
-      print('❌ ERROR CHECKING STOCK: $e');
+      print('❌ ERROR CHECKING NON-EXPIRED STOCK: $e');
       debugPrint('Stock check error: $e');
       return 0;
+    }
+  }
+
+  /// Get available non-expired stock grouped by branches for a product
+  ///
+  /// Returns a map of branch_id -> available quantity (excluding expired batches).
+  /// Used for displaying multi-branch stock availability in product details.
+  static Future<Map<String, int>> getNonExpiredStockByBranches({
+    required String productId,
+  }) async {
+    try {
+      print('📦 FETCHING NON-EXPIRED STOCK BY BRANCHES for Product $productId');
+
+      final response = await _client.rpc(
+        'get_non_expired_stock_by_branches',
+        params: {
+          'p_product_id': productId,
+        },
+      );
+
+      if (response == null || response is! List) {
+        print('⚠️ NO BRANCH STOCK DATA FOUND');
+        return {};
+      }
+
+      // Parse response into map
+      final Map<String, int> branchStockMap = {};
+      for (final item in response) {
+        final branchId = item['branch_id'] as String;
+        final quantity = item['available_quantity'] as int;
+        branchStockMap[branchId] = quantity;
+        print('   Branch $branchId: $quantity units');
+      }
+
+      print('✅ BRANCH STOCK FETCHED: ${branchStockMap.length} branches');
+      return branchStockMap;
+    } catch (e) {
+      print('❌ ERROR FETCHING BRANCH STOCK: $e');
+      debugPrint('Branch stock fetch error: $e');
+      return {};
     }
   }
 
@@ -323,6 +370,53 @@ class ProductService {
       return anyTier;
     } catch (e) {
       print('❌ ERROR FINDING TIER FOR QUANTITY: $e');
+      return null;
+    }
+  }
+
+  /// Validate if a quantity meets the minimum/maximum requirements for a specific price tier
+  ///
+  /// **P0 Critical Fix**: Prevents customers from adding items below the minimum quantity
+  /// for their selected pricing tier.
+  ///
+  /// Returns:
+  /// - `true` if quantity is valid (>= minQuantity and <= maxQuantity if set)
+  /// - `false` if quantity is invalid
+  static bool validateQuantityForTier({
+    required PriceTier tier,
+    required int quantity,
+  }) {
+    if (quantity < tier.minQuantity) {
+      print('❌ VALIDATION FAILED: Quantity $quantity is below minimum ${tier.minQuantity}');
+      return false;
+    }
+
+    if (tier.maxQuantity != null && quantity > tier.maxQuantity!) {
+      print('❌ VALIDATION FAILED: Quantity $quantity exceeds maximum ${tier.maxQuantity}');
+      return false;
+    }
+
+    print('✅ VALIDATION PASSED: Quantity $quantity is valid for ${tier.tierType.name} tier');
+    return true;
+  }
+
+  /// Get the minimum quantity required for a specific pricing tier
+  ///
+  /// Returns the minimum quantity, or null if the tier doesn't exist on the product.
+  static int? getMinimumQuantityForTier({
+    required Product product,
+    required PricingTier tierType,
+  }) {
+    try {
+      final matchingTiers = product.priceTiers.where(
+        (t) => t.tierType == tierType && t.isActive,
+      ).toList();
+
+      if (matchingTiers.isEmpty) return null;
+
+      return matchingTiers.first.minQuantity;
+    } catch (e) {
+      print('❌ ERROR GETTING MINIMUM QUANTITY: $e');
       return null;
     }
   }
@@ -440,8 +534,9 @@ class ProductService {
 
       if (inStockOnly == true && branchId != null) {
         products = products.where((product) {
+          // **P0 CRITICAL FIX**: Filter using non-expired stock only
           return product.inventory.any((inv) =>
-            inv.branchId == branchId && inv.availableQuantity > 0
+            inv.branchId == branchId && inv.getAvailableNonExpiredQuantity() > 0
           );
         }).toList();
       }
@@ -468,9 +563,10 @@ class ProductService {
       final products = await getProducts();
 
       // Sort by availability and return limited results
+      // **P0 CRITICAL FIX**: Sort using non-expired stock only
       products.sort((a, b) {
-        final aStock = a.inventory.fold(0, (sum, inv) => sum + inv.availableQuantity);
-        final bStock = b.inventory.fold(0, (sum, inv) => sum + inv.availableQuantity);
+        final aStock = a.inventory.fold(0, (sum, inv) => sum + inv.getAvailableNonExpiredQuantity());
+        final bStock = b.inventory.fold(0, (sum, inv) => sum + inv.getAvailableNonExpiredQuantity());
         return bStock.compareTo(aStock);
       });
 
@@ -498,7 +594,8 @@ class ProductService {
       ),
     );
 
-    return inventory.availableQuantity <= inventory.lowStockThreshold;
+    // **P0 CRITICAL FIX**: Check non-expired stock against threshold
+    return inventory.getAvailableNonExpiredQuantity() <= inventory.lowStockThreshold;
   }
 
   /// Check if a product has expiring batches

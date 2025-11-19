@@ -28,6 +28,18 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
     final isInStock = totalStock > 0;
     final isLowStock = totalStock > 0 && totalStock <= 10;
     final selectedPrice = _getProductPrice(product, _selectedPricingTier);
+    final minimumQuantity = _getMinimumQuantity(product, _selectedPricingTier); // P0 FIX
+
+    // **P0 CRITICAL FIX**: Ensure quantity is at least the tier minimum
+    if (_selectedQuantity < minimumQuantity) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _selectedQuantity = minimumQuantity;
+          });
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: AppColors.surfacePrimary,
@@ -156,7 +168,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                         const SizedBox(height: 24),
 
                         // Quantity Selector and Add to Cart
-                        _buildAddToCartSection(product, selectedPrice, isInStock, totalStock),
+                        _buildAddToCartSection(product, selectedPrice, isInStock, totalStock, minimumQuantity),
                       ],
                     ),
                   ),
@@ -294,6 +306,8 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                 onTap: () {
                   setState(() {
                     _selectedPricingTier = tier.tierType;
+                    // **P0 CRITICAL FIX**: Reset quantity to tier minimum
+                    _selectedQuantity = tier.minQuantity;
                   });
                 },
                 child: Row(
@@ -305,31 +319,21 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                         if (value != null) {
                           setState(() {
                             _selectedPricingTier = value;
+                            // **P0 CRITICAL FIX**: Reset quantity to tier minimum
+                            _selectedQuantity = tier.minQuantity;
                           });
                         }
                       },
                       activeColor: AppColors.primaryRed,
                     ),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tier.tierType.name.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: isSelected ? AppColors.primaryRed : AppColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            'Min: ${tier.minQuantity}${tier.maxQuantity != null ? ' - Max: ${tier.maxQuantity}' : '+'}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        tier.displayName,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? AppColors.primaryRed : AppColors.textPrimary,
+                        ),
                       ),
                     ),
                     Text(
@@ -418,7 +422,8 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: inv.availableQuantity > 0 ? AppColors.success : AppColors.error,
+                      // **P0 CRITICAL FIX**: Use non-expired stock for status indicator
+                      color: inv.getAvailableNonExpiredQuantity() > 0 ? AppColors.success : AppColors.error,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -433,7 +438,8 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                     ),
                   ),
                   Text(
-                    '${inv.availableQuantity} units',
+                    // **P0 CRITICAL FIX**: Display non-expired stock only
+                    '${inv.getAvailableNonExpiredQuantity()} units',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -449,7 +455,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
     );
   }
 
-  Widget _buildAddToCartSection(Product product, double? selectedPrice, bool isInStock, int totalStock) {
+  Widget _buildAddToCartSection(Product product, double? selectedPrice, bool isInStock, int totalStock, int minimumQuantity) {
     return Container(
       padding: EdgeInsets.only(
         left: 16,
@@ -515,8 +521,9 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                 ),
                 child: Row(
                   children: [
+                    // **P0 CRITICAL FIX**: Respect tier minimum quantity
                     IconButton(
-                      onPressed: _selectedQuantity > 1
+                      onPressed: _selectedQuantity > minimumQuantity
                           ? () => setState(() => _selectedQuantity--)
                           : null,
                       icon: const Icon(Icons.remove),
@@ -646,7 +653,20 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   }
 
   int _getTotalStock(Product product) {
-    return product.inventory.fold(0, (sum, inv) => sum + inv.availableQuantity);
+    // **P0 CRITICAL FIX**: Use non-expired stock only
+    return product.inventory.fold(0, (sum, inv) => sum + inv.getAvailableNonExpiredQuantity());
+  }
+
+  /// **P0 CRITICAL FIX**: Get minimum quantity for selected pricing tier
+  int _getMinimumQuantity(Product product, PricingTier tier) {
+    try {
+      final priceTier = product.priceTiers.firstWhere(
+        (p) => p.tierType == tier && p.isActive,
+      );
+      return priceTier.minQuantity;
+    } catch (e) {
+      return 1; // Fallback to 1 if tier not found
+    }
   }
 
   double? _getProductPrice(Product product, PricingTier tier) {

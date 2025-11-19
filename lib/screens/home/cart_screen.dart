@@ -454,16 +454,25 @@ class CartScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // **P0 CRITICAL FIX**: Respect tier minimum quantity
                     IconButton(
-                      onPressed: item.quantity > 1
-                          ? () {
-                              ref.read(cartProvider.notifier).updateQuantity(
-                                productId: item.product.id,
-                                tier: item.selectedTier,
-                                newQuantity: item.quantity - 1,
-                              );
-                            }
-                          : null,
+                      onPressed: () {
+                        // Get the minimum quantity for the selected tier
+                        final priceTier = item.product.priceTiers
+                            .where((t) => t.tierType == item.selectedTier && t.isActive)
+                            .toList();
+                        final minQty = priceTier.isNotEmpty ? priceTier.first.minQuantity : 1;
+
+                        return item.quantity > minQty
+                            ? () {
+                                ref.read(cartProvider.notifier).updateQuantity(
+                                  productId: item.product.id,
+                                  tier: item.selectedTier,
+                                  newQuantity: item.quantity - 1,
+                                );
+                              }
+                            : null;
+                      }(),
                       icon: const Icon(Icons.remove, size: 20),
                       constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                     ),

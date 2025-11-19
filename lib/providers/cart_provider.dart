@@ -109,10 +109,22 @@ class CartNotifier extends Notifier<CartState> {
         return false;
       }
 
-      // Note: Quantity validation is now handled by getTierForQuantity
-      // It automatically finds the right tier based on quantity ranges
+      // **P0 CRITICAL FIX**: Validate minimum quantity for the selected tier
+      // This prevents customers from ordering below the minimum required quantity
+      if (!ProductService.validateQuantityForTier(
+        tier: priceTier,
+        quantity: quantity,
+      )) {
+        final tierDisplayName = priceTier.tierType.name[0].toUpperCase() +
+                                 priceTier.tierType.name.substring(1);
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Minimum quantity for $tierDisplayName pricing is ${priceTier.minQuantity} units',
+        );
+        return false;
+      }
 
-      // Check stock availability
+      // Check stock availability (now filters expired batches automatically)
       final branchId = await ProductService.getDefaultBranchId();
       if (branchId != null) {
         final availableStock = await ProductService.getAvailableStock(
@@ -127,7 +139,7 @@ class CartNotifier extends Notifier<CartState> {
         if (totalNeeded > availableStock) {
           state = state.copyWith(
             isLoading: false,
-            error: 'Only $availableStock units available in stock',
+            error: 'Only $availableStock non-expired units available in stock',
           );
           return false;
         }
@@ -222,10 +234,22 @@ class CartNotifier extends Notifier<CartState> {
         return false;
       }
 
-      // Note: Quantity validation is now handled by getTierForQuantity
-      // It automatically finds the right tier based on quantity ranges
+      // **P0 CRITICAL FIX**: Validate minimum quantity for the selected tier
+      // This prevents customers from reducing quantity below the tier's minimum
+      if (!ProductService.validateQuantityForTier(
+        tier: priceTier,
+        quantity: newQuantity,
+      )) {
+        final tierDisplayName = priceTier.tierType.name[0].toUpperCase() +
+                                 priceTier.tierType.name.substring(1);
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Cannot reduce below minimum. $tierDisplayName pricing requires ${priceTier.minQuantity} units minimum',
+        );
+        return false;
+      }
 
-      // Check stock availability
+      // Check stock availability (now filters expired batches automatically)
       final branchId = await ProductService.getDefaultBranchId();
       if (branchId != null) {
         final availableStock = await ProductService.getAvailableStock(
@@ -236,7 +260,7 @@ class CartNotifier extends Notifier<CartState> {
         if (newQuantity > availableStock) {
           state = state.copyWith(
             isLoading: false,
-            error: 'Only $availableStock units available in stock',
+            error: 'Only $availableStock non-expired units available in stock',
           );
           return false;
         }
@@ -340,8 +364,32 @@ class CartNotifier extends Notifier<CartState> {
         return false;
       }
 
-      // Check stock for each item
+      // Check stock and minimum quantity for each item
       for (final item in state.items) {
+        // Get the price tier for this item
+        final priceTier = ProductService.getTierForQuantity(
+          product: item.product,
+          tierType: item.selectedTier,
+          quantity: item.quantity,
+        );
+
+        // Validate minimum quantity
+        if (priceTier != null) {
+          if (!ProductService.validateQuantityForTier(
+            tier: priceTier,
+            quantity: item.quantity,
+          )) {
+            final tierDisplayName = priceTier.tierType.name[0].toUpperCase() +
+                                    priceTier.tierType.name.substring(1);
+            state = state.copyWith(
+              isLoading: false,
+              error: '${item.product.name}: Minimum quantity for $tierDisplayName is ${priceTier.minQuantity} units',
+            );
+            return false;
+          }
+        }
+
+        // Check non-expired stock availability
         final availableStock = await ProductService.getAvailableStock(
           productId: item.product.id,
           branchId: branchId,
@@ -350,7 +398,7 @@ class CartNotifier extends Notifier<CartState> {
         if (item.quantity > availableStock) {
           state = state.copyWith(
             isLoading: false,
-            error: '${item.product.name} has only $availableStock units available',
+            error: '${item.product.name} has only $availableStock non-expired units available',
           );
           return false;
         }

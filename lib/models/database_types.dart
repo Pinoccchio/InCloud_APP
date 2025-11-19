@@ -301,6 +301,42 @@ class PriceTier {
       'updated_by': updatedBy,
     };
   }
+
+  /// **P0 Critical Fix**: Validate if a quantity meets this tier's requirements
+  ///
+  /// Returns true if quantity is valid for this tier:
+  /// - Must be >= minQuantity
+  /// - Must be <= maxQuantity (if maxQuantity is set)
+  bool isQuantityValid(int quantity) {
+    if (quantity < minQuantity) return false;
+    if (maxQuantity != null && quantity > maxQuantity!) return false;
+    return true;
+  }
+
+  /// Get a human-readable string describing the quantity range for this tier
+  ///
+  /// Examples:
+  /// - "1-9 units" (when min=1, max=9)
+  /// - "10+ units" (when min=10, max=null)
+  /// - "20-50 units" (when min=20, max=50)
+  String get quantityRangeText {
+    if (maxQuantity != null) {
+      return '$minQuantity-$maxQuantity units';
+    } else {
+      return '$minQuantity+ units';
+    }
+  }
+
+  /// Get the tier display name with quantity range
+  ///
+  /// Examples:
+  /// - "Retail (1-9 units)"
+  /// - "Wholesale (10+ units)"
+  /// - "Bulk (20-50 units)"
+  String get displayName {
+    final tierName = tierType.name[0].toUpperCase() + tierType.name.substring(1);
+    return '$tierName ($quantityRangeText)';
+  }
 }
 
 class Inventory {
@@ -385,6 +421,34 @@ class Inventory {
           : [],
     );
   }
+
+  /// **P0 Critical Fix**: Get available quantity excluding expired batches
+  ///
+  /// This method calculates the actual orderable quantity by summing only
+  /// non-expired, active batches. This prevents customers from ordering
+  /// products that have expired.
+  ///
+  /// Returns: Sum of quantities from non-expired batches
+  int getAvailableNonExpiredQuantity() {
+    return batches
+        .where((batch) => batch.isActive && !batch.isExpired)
+        .fold(0, (sum, batch) => sum + batch.quantity);
+  }
+
+  /// Check if this inventory has any expired batches
+  bool get hasExpiredBatches {
+    return batches.any((batch) => batch.isExpired && batch.isActive);
+  }
+
+  /// Check if this inventory has any expiring soon batches (within 7 days)
+  bool get hasExpiringSoonBatches {
+    return batches.any((batch) => batch.isExpiringSoon && batch.isActive);
+  }
+
+  /// Get count of non-expired batches
+  int get nonExpiredBatchCount {
+    return batches.where((batch) => !batch.isExpired && batch.isActive).length;
+  }
 }
 
 class ProductBatch {
@@ -460,6 +524,18 @@ class ProductBatch {
   // Helper method to check if batch is expired
   bool get isExpired {
     return expirationDate.isBefore(app_date_utils.DateUtils.nowInUtc());
+  }
+
+  /// **P0 Critical Fix**: Check if batch is still valid for ordering
+  ///
+  /// A batch is non-expired if its expiration date is in the future.
+  /// This is used to filter out batches that customers should not be able to order.
+  bool get isNonExpired => !isExpired;
+
+  /// Get days until expiration (negative if expired)
+  int get daysUntilExpiration {
+    final now = app_date_utils.DateUtils.nowInUtc();
+    return expirationDate.difference(now).inDays;
   }
 }
 
