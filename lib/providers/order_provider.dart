@@ -115,6 +115,8 @@ class OrderNotifier extends Notifier<OrderState> {
     required List<CartItem> cartItems,
     String? notes,
     Map<String, dynamic>? deliveryAddress,
+    String paymentMethod = 'cash_on_delivery',
+    String? gcashReferenceNumber,
   }) async {
     if (state.isLoading) return null;
 
@@ -125,6 +127,8 @@ class OrderNotifier extends Notifier<OrderState> {
         cartItems: cartItems,
         notes: notes,
         deliveryAddress: deliveryAddress,
+        paymentMethod: paymentMethod,
+        gcashReferenceNumber: gcashReferenceNumber,
       );
 
       if (orderId != null) {

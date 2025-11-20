@@ -648,6 +648,10 @@ class Order {
   final String? proofOfPaymentStatus;
   final String? proofRejectionReason;
 
+  // Payment method selection (CoD vs Online)
+  final String? paymentMethod;            // 'cash_on_delivery' or 'online_payment'
+  final String? gcashReferenceNumber;     // GCash transaction reference (for online payment)
+
   // Related data
   final List<OrderItem> items;
   final List<OrderStatusHistory> statusHistory;
@@ -673,6 +677,8 @@ class Order {
     this.proofOfPaymentUrl,
     this.proofOfPaymentStatus,
     this.proofRejectionReason,
+    this.paymentMethod,
+    this.gcashReferenceNumber,
     this.items = const [],
     this.statusHistory = const [],
   });
@@ -734,6 +740,8 @@ class Order {
         proofOfPaymentUrl: json['proof_of_payment_url']?.toString(),
         proofOfPaymentStatus: json['proof_of_payment_status']?.toString(),
         proofRejectionReason: json['proof_rejection_reason']?.toString(),
+        paymentMethod: json['payment_method']?.toString() ?? 'cash_on_delivery',
+        gcashReferenceNumber: json['gcash_reference_number']?.toString(),
         items: _parseOrderItems(json['order_items']),
         statusHistory: _parseOrderStatusHistory(json['order_status_history']),
       );

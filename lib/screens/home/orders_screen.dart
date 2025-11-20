@@ -410,6 +410,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                       color: AppColors.primaryRed,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  // Payment method icon badge
+                  Tooltip(
+                    message: _getPaymentMethodText(order.paymentMethod),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: _getPaymentMethodColor(order.paymentMethod).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        _getPaymentMethodIcon(order.paymentMethod),
+                        size: 14,
+                        color: _getPaymentMethodColor(order.paymentMethod),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -570,6 +587,37 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
         return AppColors.error;
       case OrderStatus.returned:
         return Colors.grey;
+    }
+  }
+
+  // Payment method helper methods for order cards
+  Color _getPaymentMethodColor(String? paymentMethod) {
+    switch (paymentMethod) {
+      case 'online_payment':
+        return Colors.green;
+      case 'cash_on_delivery':
+      default:
+        return Colors.blue;
+    }
+  }
+
+  IconData _getPaymentMethodIcon(String? paymentMethod) {
+    switch (paymentMethod) {
+      case 'online_payment':
+        return Icons.account_balance_wallet;
+      case 'cash_on_delivery':
+      default:
+        return Icons.local_shipping;
+    }
+  }
+
+  String _getPaymentMethodText(String? paymentMethod) {
+    switch (paymentMethod) {
+      case 'online_payment':
+        return 'Online Payment (GCash)';
+      case 'cash_on_delivery':
+      default:
+        return 'Cash on Delivery';
     }
   }
 
@@ -822,6 +870,69 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        // Payment method display
+                        Row(
+                          children: [
+                            const Text('Payment: '),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _getPaymentMethodColor(widget.order.paymentMethod).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _getPaymentMethodIcon(widget.order.paymentMethod),
+                                    size: 14,
+                                    color: _getPaymentMethodColor(widget.order.paymentMethod),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _getPaymentMethodText(widget.order.paymentMethod),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: _getPaymentMethodColor(widget.order.paymentMethod),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        // GCash reference number display (if online payment)
+                        if (widget.order.paymentMethod == 'online_payment' &&
+                            widget.order.gcashReferenceNumber != null) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('GCash Ref: '),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.green.shade200),
+                                  ),
+                                  child: Text(
+                                    widget.order.gcashReferenceNumber!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.green.shade700,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         // Add status description and progression
                         Container(
@@ -1732,6 +1843,37 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
         return AppColors.error;
       case OrderStatus.returned:
         return Colors.grey;
+    }
+  }
+
+  // Payment method helper methods
+  Color _getPaymentMethodColor(String? paymentMethod) {
+    switch (paymentMethod) {
+      case 'online_payment':
+        return Colors.green;
+      case 'cash_on_delivery':
+      default:
+        return Colors.blue;
+    }
+  }
+
+  IconData _getPaymentMethodIcon(String? paymentMethod) {
+    switch (paymentMethod) {
+      case 'online_payment':
+        return Icons.account_balance_wallet;
+      case 'cash_on_delivery':
+      default:
+        return Icons.local_shipping;
+    }
+  }
+
+  String _getPaymentMethodText(String? paymentMethod) {
+    switch (paymentMethod) {
+      case 'online_payment':
+        return 'Online Payment (GCash)';
+      case 'cash_on_delivery':
+      default:
+        return 'Cash on Delivery';
     }
   }
 

@@ -14,6 +14,8 @@ class OrderService {
     required List<CartItem> cartItems,
     String? notes,
     Map<String, dynamic>? deliveryAddress,
+    String paymentMethod = 'cash_on_delivery',  // 'cash_on_delivery' or 'online_payment'
+    String? gcashReferenceNumber,               // Required for online_payment
   }) async {
     try {
       print('🛒 CREATING ORDER FROM CART...');
@@ -75,6 +77,11 @@ class OrderService {
       print('   Subtotal: ₱${subtotal.toStringAsFixed(2)}');
       print('   Total: ₱${totalAmount.toStringAsFixed(2)}');
 
+      // Validate payment method and reference number
+      if (paymentMethod == 'online_payment' && (gcashReferenceNumber == null || gcashReferenceNumber.trim().isEmpty)) {
+        throw Exception('GCash reference number is required for online payment');
+      }
+
       // Create order
       final orderData = {
         'order_number': orderNumber,
@@ -89,6 +96,8 @@ class OrderService {
         'total_amount': totalAmount,
         'notes': notes,
         'created_by_user_id': user.id, // User who created this order
+        'payment_method': paymentMethod,
+        'gcash_reference_number': gcashReferenceNumber,
       };
 
       final orderResponse = await _client

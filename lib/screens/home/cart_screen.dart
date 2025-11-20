@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/database_types.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
+import '../../widgets/payment_method_dialog.dart';
 
 class CartScreen extends ConsumerWidget {
   final void Function(int)? onNavigateToTab;
@@ -520,37 +521,30 @@ class CartScreen extends ConsumerWidget {
   }
 
   void _showCheckoutDialog(BuildContext context, WidgetRef ref) {
+    final total = ref.read(cartTotalProvider);
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Proceed to Checkout'),
-        content: const Text(
-          'Your order request will be sent to J.A\'s Food Trading for processing. '
-          'You will receive a confirmation and delivery details shortly.\n\n'
-          'Payment will be collected upon delivery.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _processCheckout(context, ref);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryRed,
-              foregroundColor: AppColors.white,
-            ),
-            child: const Text('Submit Order Request'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (context) => PaymentMethodDialog(
+        totalAmount: total,
+        onConfirm: (paymentMethod, gcashReference) {
+          Navigator.of(context).pop();
+          _processCheckout(context, ref, paymentMethod, gcashReference);
+        },
+        onCancel: () {
+          Navigator.of(context).pop();
+        },
       ),
     );
   }
 
-  void _processCheckout(BuildContext context, WidgetRef ref) async {
+  void _processCheckout(
+    BuildContext context,
+    WidgetRef ref,
+    String paymentMethod,
+    String? gcashReference,
+  ) async {
     final cartItems = ref.read(cartItemsProvider);
 
     if (cartItems.isEmpty) {
@@ -588,6 +582,8 @@ class CartScreen extends ConsumerWidget {
         cartItems: cartItems,
         notes: null, // Could add notes field in the future
         deliveryAddress: null, // Uses customer's default address
+        paymentMethod: paymentMethod,
+        gcashReferenceNumber: gcashReference,
       );
 
       // Close loading dialog
