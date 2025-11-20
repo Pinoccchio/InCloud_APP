@@ -17,7 +17,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   String? _selectedBrandId; // Store brand ID instead of name
   String _selectedSortBy = 'Name';
-  PricingTier _selectedPricingTier = PricingTier.retail;
 
   @override
   void initState() {
@@ -117,31 +116,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   double? _getProductPrice(Product product) {
-    // Get all active tiers of the selected type
-    final tiersOfType = product.priceTiers
-        .where((t) => t.tierType == _selectedPricingTier && t.isActive)
+    // Get all active price tiers
+    final activeTiers = product.priceTiers
+        .where((t) => t.isActive)
         .toList();
 
-    if (tiersOfType.isEmpty) {
-      // Fallback to any active tier
-      final anyTier = product.priceTiers.firstWhere(
-        (t) => t.isActive,
-        orElse: () => PriceTier(
-          id: '',
-          productId: product.id,
-          tierType: PricingTier.retail,
-          price: 0.0,
-          createdAt: app_date_utils.DateUtils.nowInUtc(),
-          updatedAt: app_date_utils.DateUtils.nowInUtc(),
-        ),
-      );
-      return anyTier.price;
+    if (activeTiers.isEmpty) {
+      // No active tiers - return null
+      return null;
     }
 
-    // If multiple tiers exist, return the lowest price (best deal for customer)
+    // Return the lowest price (best deal for customer)
     // Sort by price ascending and return the first (lowest)
-    tiersOfType.sort((a, b) => a.price.compareTo(b.price));
-    return tiersOfType.first.price;
+    activeTiers.sort((a, b) => a.price.compareTo(b.price));
+    return activeTiers.first.price;
   }
 
   @override
@@ -268,43 +256,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 12),
-
-                  // Pricing Tier Selector
-                  Row(
-                    children: [
-                      Text(
-                        'Pricing: ',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      ...PricingTier.values.map((tier) =>
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text(tier.name.toUpperCase()),
-                            selected: _selectedPricingTier == tier,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedPricingTier = tier;
-                              });
-                            },
-                            selectedColor: AppColors.primaryBlue.withValues(alpha: 0.2),
-                            labelStyle: TextStyle(
-                              color: _selectedPricingTier == tier
-                                  ? AppColors.primaryBlue
-                                  : AppColors.textSecondary,
-                              fontWeight: _selectedPricingTier == tier
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -611,13 +562,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.primaryRed,
-                                ),
-                              ),
-                              Text(
-                                '(${_selectedPricingTier.name.toUpperCase()} Price)',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary,
                                 ),
                               ),
                             ],

@@ -517,20 +517,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                     child: const Text('Cancel'),
                   ),
                 )
-              else if (OrderService.canReorderOrder(order))
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _handleReorder(order),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryBlue,
-                      foregroundColor: AppColors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('Reorder'),
-                  ),
-                )
               else
                 Expanded(
                   child: Container(
@@ -687,86 +673,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     );
   }
 
-  void _handleReorder(Order order) async {
-    if (!mounted) return;
-
-    // Capture ScaffoldMessenger before async operations
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-
-    // Show loading indicator
-    scaffoldMessenger.showSnackBar(
-      const SnackBar(
-        content: Text('Preparing reorder...'),
-        duration: Duration(seconds: 1),
-      ),
-    );
-
-    try {
-      final reorderItems = await ref.read(orderProvider.notifier).getReorderItems(order.id);
-
-      if (!mounted) return;
-
-      if (reorderItems.isNotEmpty) {
-        // Add items to cart
-        final cartNotifier = ref.read(cartProvider.notifier);
-
-        for (final item in reorderItems) {
-          await cartNotifier.addToCart(
-            product: item.product,
-            tier: item.selectedTier,
-            quantity: item.quantity,
-          );
-        }
-
-        // Navigate to cart
-        widget.onNavigateToTab?.call(2);
-
-        // Provide feedback based on the number of original items vs added items
-        final originalItemCount = order.items.length;
-        String message;
-        Color backgroundColor;
-
-        if (reorderItems.length == originalItemCount) {
-          message = '${reorderItems.length} items added to cart';
-          backgroundColor = AppColors.success;
-        } else {
-          message = '${reorderItems.length} of $originalItemCount items added to cart';
-          backgroundColor = AppColors.warning;
-        }
-
-        if (!mounted) return;
-
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: backgroundColor,
-            action: SnackBarAction(
-              label: 'View Cart',
-              textColor: Colors.white,
-              onPressed: () => widget.onNavigateToTab?.call(2),
-            ),
-          ),
-        );
-      } else {
-        // No items could be added
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text('No items available for reorder'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text('Failed to prepare reorder: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
 }
 
 class _OrderDetailsSheet extends StatefulWidget {

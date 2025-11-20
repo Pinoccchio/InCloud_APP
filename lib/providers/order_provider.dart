@@ -172,19 +172,6 @@ class OrderNotifier extends Notifier<OrderState> {
     }
   }
 
-  // Reorder items
-  Future<List<CartItem>> getReorderItems(String orderId) async {
-    try {
-      return await OrderService.getReorderItems(orderId);
-    } catch (e) {
-      print('❌ ERROR GETTING REORDER ITEMS: $e');
-      state = state.copyWith(
-        error: 'Failed to prepare reorder items: ${e.toString()}',
-      );
-      return [];
-    }
-  }
-
   // Select order for details view
   void selectOrder(String? orderId) {
     state = state.copyWith(selectedOrderId: orderId);

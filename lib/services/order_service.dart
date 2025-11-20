@@ -338,74 +338,6 @@ class OrderService {
     }
   }
 
-  /// Reorder items from a previous order
-  static Future<List<CartItem>> getReorderItems(String orderId) async {
-    try {
-      print('🔄 PREPARING REORDER FROM: $orderId');
-
-      final order = await getOrderById(orderId);
-      if (order == null) {
-        throw Exception('Order not found');
-      }
-
-      List<CartItem> cartItems = [];
-      List<String> skippedItems = [];
-      List<String> unavailableItems = [];
-
-      for (final orderItem in order.items) {
-        if (orderItem.product == null) {
-          skippedItems.add('Product data missing');
-          print('⚠️ Skipping item ${orderItem.productId}: Product data is null');
-          continue;
-        }
-
-        final product = orderItem.product!;
-
-        // Check if product is still available
-        if (product.status != ProductStatus.available) {
-          unavailableItems.add(product.name);
-          print('⚠️ Skipping ${product.name}: Product is no longer available (${product.status})');
-          continue;
-        }
-
-        // Check if product has price tiers
-        if (product.priceTiers.isEmpty) {
-          skippedItems.add('${product.name} (no pricing available)');
-          print('⚠️ Skipping ${product.name}: No price tiers available');
-          continue;
-        }
-
-        try {
-          final cartItem = CartItem.fromProduct(
-            product: product,
-            tier: orderItem.pricingTier,
-            quantity: orderItem.quantity,
-          );
-          cartItems.add(cartItem);
-          print('✅ Added ${product.name} to reorder cart');
-        } catch (e) {
-          skippedItems.add('${product.name} (${e.toString()})');
-          print('⚠️ Skipping ${product.name}: $e');
-        }
-      }
-
-      // Log summary
-      print('✅ REORDER ITEMS PREPARED: ${cartItems.length} items successfully added');
-      if (skippedItems.isNotEmpty) {
-        print('⚠️ SKIPPED ITEMS: ${skippedItems.length} - ${skippedItems.join(', ')}');
-      }
-      if (unavailableItems.isNotEmpty) {
-        print('🚫 UNAVAILABLE ITEMS: ${unavailableItems.length} - ${unavailableItems.join(', ')}');
-      }
-
-      return cartItems;
-    } catch (e) {
-      print('❌ ERROR PREPARING REORDER: $e');
-      debugPrint('Reorder preparation error: $e');
-      return [];
-    }
-  }
-
   /// Get order status counts for customer
   static Future<Map<String, int>> getOrderStatusCounts() async {
     try {
@@ -486,11 +418,6 @@ class OrderService {
   /// Check if order can be cancelled
   static bool canCancelOrder(Order order) {
     return order.status == OrderStatus.pending;
-  }
-
-  /// Check if order can be reordered
-  static bool canReorderOrder(Order order) {
-    return order.status == OrderStatus.delivered || order.status == OrderStatus.cancelled;
   }
 
   /// Get order status display info
