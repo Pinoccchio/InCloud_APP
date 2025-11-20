@@ -22,6 +22,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _streetController = TextEditingController();
+  final _barangayController = TextEditingController();
+  final _cityController = TextEditingController(text: 'Manila');
+  final _provinceController = TextEditingController(text: 'Metro Manila');
+  final _postalCodeController = TextEditingController();
+  final _deliveryNotesController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
@@ -34,6 +40,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _fullNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _streetController.dispose();
+    _barangayController.dispose();
+    _cityController.dispose();
+    _provinceController.dispose();
+    _postalCodeController.dispose();
+    _deliveryNotesController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -53,11 +65,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
       setState(() => _isLoading = true);
 
+      // Build address data
+      final addressData = {
+        'street': _streetController.text.trim(),
+        'barangay': _barangayController.text.trim(),
+        'city': _cityController.text.trim(),
+        'province': _provinceController.text.trim().isEmpty
+            ? 'Metro Manila'
+            : _provinceController.text.trim(),
+        'postal_code': _postalCodeController.text.trim(),
+        'notes': _deliveryNotesController.text.trim(),
+      };
+
       final result = await AuthService.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         fullName: _fullNameController.text.trim(),
         phone: _phoneController.text.trim(),
+        address: addressData,
       );
 
       if (mounted) {
@@ -194,6 +219,50 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     }
     if (value != _passwordController.text) {
       return 'Passwords do not match';
+    }
+    return null;
+  }
+
+  String? _validateStreet(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Street address is required';
+    }
+    if (value.trim().length < 10) {
+      return 'Please enter a complete street address (min 10 characters)';
+    }
+    if (value.trim().length > 255) {
+      return 'Street address too long (max 255 characters)';
+    }
+    return null;
+  }
+
+  String? _validateBarangay(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Barangay is required';
+    }
+    if (value.trim().length > 100) {
+      return 'Barangay name too long (max 100 characters)';
+    }
+    return null;
+  }
+
+  String? _validateCity(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'City is required';
+    }
+    if (value.trim().length > 100) {
+      return 'City name too long (max 100 characters)';
+    }
+    return null;
+  }
+
+  String? _validatePostalCode(String? value) {
+    // Optional field, but if provided should be 4 digits
+    if (value == null || value.trim().isEmpty) {
+      return null; // Optional
+    }
+    if (!RegExp(r'^\d{4}$').hasMatch(value.trim())) {
+      return 'Postal code must be 4 digits';
     }
     return null;
   }
@@ -363,7 +432,210 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   ),
                 ),
 
+                const SizedBox(height: 24),
+
+                // Address Section Header
+                Text(
+                  'Delivery Address',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  'Please provide your complete delivery address',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                ),
+
                 const SizedBox(height: 16),
+
+                // Street Address field
+                TextFormField(
+                  controller: _streetController,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  maxLines: 2,
+                  validator: _validateStreet,
+                  decoration: InputDecoration(
+                    labelText: 'Street Address',
+                    hintText: 'e.g., 123 Main Street, Blk 5 Lot 10',
+                    prefixIcon: const Icon(
+                      Icons.home_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Barangay field
+                TextFormField(
+                  controller: _barangayController,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  validator: _validateBarangay,
+                  decoration: InputDecoration(
+                    labelText: 'Barangay',
+                    hintText: 'e.g., Barangay 123',
+                    prefixIcon: const Icon(
+                      Icons.location_city_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // City and Province Row
+                Row(
+                  children: [
+                    // City field
+                    Expanded(
+                      child: TextFormField(
+                        controller: _cityController,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        validator: _validateCity,
+                        decoration: InputDecoration(
+                          labelText: 'City',
+                          hintText: 'e.g., Manila',
+                          prefixIcon: const Icon(
+                            Icons.location_on_outlined,
+                            color: AppColors.primaryBlue,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppColors.gray300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    // Province field
+                    Expanded(
+                      child: TextFormField(
+                        controller: _provinceController,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: 'Province (Optional)',
+                          hintText: 'Metro Manila',
+                          prefixIcon: const Icon(
+                            Icons.map_outlined,
+                            color: AppColors.primaryBlue,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppColors.gray300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Postal Code field
+                TextFormField(
+                  controller: _postalCodeController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  validator: _validatePostalCode,
+                  decoration: InputDecoration(
+                    labelText: 'Postal Code (Optional)',
+                    hintText: 'e.g., 1008',
+                    prefixIcon: const Icon(
+                      Icons.markunread_mailbox_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Delivery Notes field
+                TextFormField(
+                  controller: _deliveryNotesController,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.next,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: 'Delivery Notes (Optional)',
+                    hintText: 'e.g., Near the blue gate, 2nd floor',
+                    prefixIcon: const Icon(
+                      Icons.notes_outlined,
+                      color: AppColors.primaryBlue,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.gray300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
 
                 // Branch assignment display (dynamic)
                 Consumer(

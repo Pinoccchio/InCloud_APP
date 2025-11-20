@@ -130,6 +130,7 @@ class AuthStateNotifier extends Notifier<AuthStateData> {
     required String password,
     required String fullName,
     required String phone,
+    required Map<String, dynamic> address,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
 
@@ -139,6 +140,7 @@ class AuthStateNotifier extends Notifier<AuthStateData> {
         password: password,
         fullName: fullName,
         phone: phone,
+        address: address,
       );
 
       if (result.isSuccess) {

@@ -36,8 +36,10 @@ class AuthService {
     required String password,
     required String fullName,
     required String phone,
+    required Map<String, dynamic> address,
   }) async {
     print('🚀 SIGNUP STARTED for email: $email, name: $fullName');
+    print('📍 Address: ${address['street']}, ${address['barangay']}, ${address['city']}');
 
     try {
       // Create auth user
@@ -63,6 +65,7 @@ class AuthService {
           email: email,
           fullName: fullName,
           phone: phone,
+          address: address,
         );
 
         // Force logout to prevent auto-authentication
@@ -179,12 +182,14 @@ class AuthService {
     required String email,
     required String fullName,
     required String phone,
+    required Map<String, dynamic> address,
   }) async {
     print('💾 CREATING CUSTOMER PROFILE:');
     print('   User ID: $userId');
     print('   Email: $email');
     print('   Full Name: $fullName');
     print('   Phone: $phone');
+    print('   Address: ${address['street']}, ${address['barangay']}, ${address['city']}');
 
     try {
       // Get default branch ID
@@ -196,6 +201,7 @@ class AuthService {
         'email': email,
         'full_name': fullName,
         'phone': phone,
+        'address': address,
         'customer_type': 'regular',
         'is_active': true,
       };
@@ -291,9 +297,10 @@ class AuthService {
   static Future<AuthResult> updateCustomerProfile({
     required String fullName,
     required String phone,
-    Map<String, dynamic>? address,
+    required Map<String, dynamic> address,
   }) async {
     print('📝 UPDATING CUSTOMER PROFILE...');
+    print('📍 Address: ${address['street']}, ${address['barangay']}, ${address['city']}');
 
     try {
       if (currentUser == null) {
@@ -305,13 +312,9 @@ class AuthService {
       final Map<String, dynamic> updateData = {
         'full_name': fullName.trim(),
         'phone': phone.trim(),
+        'address': address,
         'updated_at': app_date_utils.DateUtils.nowInUtcString(),
       };
-
-      // Add address if provided
-      if (address != null) {
-        updateData['address'] = address;
-      }
 
       await _client
           .from('customers')
